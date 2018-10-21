@@ -1,5 +1,5 @@
 # KingmakerKingdomResolutionMod
-Mod to remove backpacks, helmets and change class outfits for the Game Pathfinder Kingmaker.
+Resolve Kingdom Events in one day. Remove requirement for baron to spend 14 days to level up advisors.
 ## Install
 1. Download and install Unity Mod Manager﻿
 2. Download the [mod](https://github.com/spacehamster/KingmakerVisualAdjustmentsMod/releases)
