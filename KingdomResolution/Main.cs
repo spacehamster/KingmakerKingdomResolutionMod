@@ -6,6 +6,7 @@ using Debug = System.Diagnostics.Debug;
 using System.Diagnostics;
 using Kingmaker.Kingdom.Tasks;
 using UnityEngine;
+using Kingmaker.Kingdom;
 
 namespace KingdomResolution
 {
@@ -45,6 +46,7 @@ namespace KingdomResolution
         {
             if (!enabled) return;
             settings.skipEvents = GUILayout.Toggle(settings.skipEvents, "Enable 1 Day Events ", GUILayout.ExpandWidth(false));
+            settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
             GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
             GUILayout.Label("Event DC Modifier ", GUILayout.ExpandWidth(false));
             settings.DCModifier = (int)GUILayout.HorizontalSlider(settings.DCModifier, -100, 100, GUILayout.Width(300f));
@@ -81,6 +83,17 @@ namespace KingdomResolution
                 if (!settings.skipEvents) return true;
                 if (__instance.EventBlueprint.NeedToVisitTheThroneRoom) return true;
                 __result = 1;
+                return false;
+            }
+        }
+        [HarmonyPatch(typeof(KingdomState), "IsPartyInsideKingdom", MethodType.Getter)]
+        static class KingdomState_IsPartyInsideKingdom_Patch
+        {
+            static bool Prefix(ref bool __result)
+            {
+                if (!enabled) return true;
+                if (!settings.alwaysInsideKingdom) return true;
+                __result = true;
                 return false;
             }
         }

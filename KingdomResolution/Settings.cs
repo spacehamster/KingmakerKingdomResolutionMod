@@ -11,6 +11,7 @@ namespace KingdomResolution
     {
         public bool skipEvents = true;
         public int DCModifier = 0;
+        public bool alwaysInsideKingdom = true;
         public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);
