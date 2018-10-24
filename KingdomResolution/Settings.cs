@@ -9,7 +9,9 @@ namespace KingdomResolution
 {
     public class Settings : UnityModManager.ModSettings
     {
-        public bool skipEvents = true;
+        public bool skipTasks = true;
+        public bool skipProjects = true;
+        public bool skipBaron = true;
         public int DCModifier = 0;
         public bool alwaysInsideKingdom = true;
         public override void Save(UnityModManager.ModEntry modEntry)
