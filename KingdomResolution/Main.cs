@@ -50,6 +50,7 @@ namespace KingdomResolution
             settings.skipProjects = GUILayout.Toggle(settings.skipProjects, "Enable 1 Day Projects ", GUILayout.ExpandWidth(false));
             settings.skipBaron = GUILayout.Toggle(settings.skipBaron, "Enable 1 Day Baron Projects ", GUILayout.ExpandWidth(false));
             settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
+            settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
             GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
             GUILayout.Label("Event DC Modifier ", GUILayout.ExpandWidth(false));
             settings.DCModifier = (int)GUILayout.HorizontalSlider(settings.DCModifier, -100, 100, GUILayout.Width(300f));
@@ -117,6 +118,16 @@ namespace KingdomResolution
                 if (!enabled) return true;
                 if (!settings.alwaysInsideKingdom) return true;
                 __result = true;
+                return false;
+            }
+        }
+        [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
+        static class KingdomTimelineManager_FailIgnoredEvents_Patch
+        {
+            static bool Prefix()
+            {
+                if (!enabled) return true;
+                if (!settings.overrideIgnoreEvents) return true;
                 return false;
             }
         }
