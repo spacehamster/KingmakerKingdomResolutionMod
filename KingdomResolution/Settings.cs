@@ -13,7 +13,7 @@ namespace KingdomResolution
         public bool skipProjects = true;
         public bool skipBaron = true;
         public bool overrideIgnoreEvents = true;
-        public int DCModifier = 0;
+        public bool easyEvents = true;
         public bool alwaysInsideKingdom = true;
         public override void Save(UnityModManager.ModEntry modEntry)
         {

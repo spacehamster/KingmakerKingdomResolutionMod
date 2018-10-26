@@ -51,11 +51,7 @@ namespace KingdomResolution
             settings.skipBaron = GUILayout.Toggle(settings.skipBaron, "Enable 1 Day Baron Projects ", GUILayout.ExpandWidth(false));
             settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
             settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
-            GUILayout.BeginHorizontal(Array.Empty<GUILayoutOption>());
-            GUILayout.Label("Event DC Modifier ", GUILayout.ExpandWidth(false));
-            settings.DCModifier = (int)GUILayout.HorizontalSlider(settings.DCModifier, -100, 100, GUILayout.Width(300f));
-            GUILayout.Label(" " + settings.DCModifier, GUILayout.ExpandWidth(false));
-            GUILayout.EndHorizontal();
+            settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent
@@ -100,13 +96,14 @@ namespace KingdomResolution
                 return true;
             }
         }
-        [HarmonyPatch(typeof(KingdomEvent), "DCModifier", MethodType.Getter)]
-        static class KingdomEvent_DCModifier_Patch
+        [HarmonyPatch(typeof(KingdomTaskEvent), "GetDC")]
+        static class KingdomTaskEvent_GetDC_Patch
         {
             static bool Prefix(ref int __result)
             {
                 if (!enabled) return true;
-                __result = settings.DCModifier;
+                if (!settings.easyEvents) return true;
+                __result = -100;
                 return false;
             }
         }
