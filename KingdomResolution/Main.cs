@@ -52,6 +52,7 @@ namespace KingdomResolution
             settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
             settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
             settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
+            settings.freeEvents = GUILayout.Toggle(settings.freeEvents, "Enable Free Events  ", GUILayout.ExpandWidth(false));
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent
@@ -77,7 +78,8 @@ namespace KingdomResolution
             static bool Prefix(KingdomEvent __instance, ref int __result)
             {
                 if (!enabled) return true;
-                if (__instance.EventBlueprint.NeedToVisitTheThroneRoom) return true;
+                //Refer KingdomUIEventWindowFooter.CanGoThroneRoom
+                if (__instance.EventBlueprint.NeedToVisitTheThroneRoom && __instance.AssociatedTask == null) return true;
                 if (settings.skipTasks && __instance.EventBlueprint is BlueprintKingdomEvent)
                 {
                     __result = 1;
@@ -125,6 +127,17 @@ namespace KingdomResolution
             {
                 if (!enabled) return true;
                 if (!settings.overrideIgnoreEvents) return true;
+                return false;
+            }
+        }
+        [HarmonyPatch(typeof(KingdomEvent), "CalculateBPCost")]
+        static class KingdomTimelineManager_CalculateBPCost_Patch
+        {
+            static bool Prefix(ref int __result)
+            {
+                if (!enabled) return true;
+                if (!settings.freeEvents) return true;
+                __result = 0;
                 return false;
             }
         }

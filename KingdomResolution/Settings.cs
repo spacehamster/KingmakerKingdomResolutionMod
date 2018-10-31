@@ -15,6 +15,7 @@ namespace KingdomResolution
         public bool overrideIgnoreEvents = true;
         public bool easyEvents = true;
         public bool alwaysInsideKingdom = true;
+        public bool freeEvents = false;
         public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);
