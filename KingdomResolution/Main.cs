@@ -77,7 +77,8 @@ namespace KingdomResolution
             static bool Prefix(KingdomEvent __instance, ref int __result)
             {
                 if (!enabled) return true;
-                if (__instance.EventBlueprint.NeedToVisitTheThroneRoom) return true;
+                //Refer KingdomUIEventWindowFooter.CanGoThroneRoom
+                if (__instance.EventBlueprint.NeedToVisitTheThroneRoom && __instance.AssociatedTask == null) return true;
                 if (settings.skipTasks && __instance.EventBlueprint is BlueprintKingdomEvent)
                 {
                     __result = 1;
