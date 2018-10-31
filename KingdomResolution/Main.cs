@@ -8,29 +8,46 @@ using Kingmaker.Kingdom.Tasks;
 using UnityEngine;
 using Kingmaker.Kingdom;
 using Kingmaker.Kingdom.Blueprints;
+using Kingmaker.Kingdom.UI;
+using TMPro;
+using Kingmaker.UI.Kingdom;
+using Kingmaker.UnitLogic.Alignments;
+using Kingmaker.Enums;
 
 namespace KingdomResolution
 {
 
     public class Main
     {
+        public static UnityModManager.ModEntry.ModLogger logger;
         [System.Diagnostics.Conditional("DEBUG")]
-        private static void DebugLog(string msg)
-    => Debug.WriteLine(nameof(KingdomResolution) + ": " + msg);
+        public static void DebugLog(string msg)
+        {
+            Debug.WriteLine(nameof(KingdomResolution) + ": " + msg);
+            if (logger != null) logger.Log(msg);
+        }
 
         public static bool enabled;
         static Settings settings;
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
-            Debug.Listeners.Add(new TextWriterTraceListener("Mods/KingdomResolution/KingdomResolution.log"));
-            Debug.AutoFlush = true;
-            settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-            var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-            modEntry.OnToggle = OnToggle;
-            modEntry.OnGUI = OnGUI;
-            modEntry.OnSaveGUI = OnSaveGUI;
+            try
+            {
+                Debug.Listeners.Add(new TextWriterTraceListener("Mods/KingdomResolution/KingdomResolution.log"));
+                Debug.AutoFlush = true;
+                settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                modEntry.OnToggle = OnToggle;
+                modEntry.OnGUI = OnGUI;
+                modEntry.OnSaveGUI = OnSaveGUI;
+                logger = modEntry.Logger;
+            } catch(Exception e)
+            {
+                modEntry.Logger.Log(e.ToString() + "\n" + e.StackTrace);
+                throw e;
+            }
             return true;
         }
         // Called when the mod is turned to on/off.
@@ -52,6 +69,7 @@ namespace KingdomResolution
             settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
             settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
             settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
+            settings.previewResults = GUILayout.Toggle(settings.previewResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent
@@ -127,6 +145,51 @@ namespace KingdomResolution
                 if (!enabled) return true;
                 if (!settings.overrideIgnoreEvents) return true;
                 return false;
+            }
+        }
+        [HarmonyPatch(typeof(KingdomUIEventWindow), "SetHeader")]
+        static class KingdomUIEventWindow_SetHeader_Patch
+        {
+            static void Postfix(KingdomUIEventWindow __instance, KingdomEventUIView kingdomEventView)
+            {
+                if (!enabled) return;
+                if (!settings.previewResults) return;
+                if(kingdomEventView.Task == null)
+                {
+                    return; //Task is null on event results;
+                }
+                var solutionText = Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>();
+                solutionText.text += "\n";
+                var leader = kingdomEventView.Task.AssignedLeader;
+                if (leader == null)
+                {
+                    solutionText.text += "<size=75%>Select a leader to preview results</size>";
+                    return;
+                }
+                var blueprint = kingdomEventView.Blueprint;
+                var solutions = blueprint.Solutions;
+                var resolutions = solutions.GetResolutions(leader.Type);
+                solutionText.text += "<size=75%>";
+                foreach (var eventResult in resolutions)
+                {
+                    var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
+                    var text = "";
+                    bool invalid = (alignmentMask & eventResult.LeaderAlignment) == AlignmentMaskType.None;
+                    //invalid |= !(eventResult.Condition == null && eventResult.Condition.Check(blueprint));
+                    if(invalid) text += "<color=#808080>";
+                    var statChanges = eventResult.StatChanges.ToStringWithPrefix(" ");
+                    text += string.Format("{0}:{1}",
+                        eventResult.Margin,
+                        statChanges == "" ? " No Change" : statChanges);
+                    //TODO: Human readable action names
+                    var actions = eventResult.Actions.Actions.Join((action) => action.name, ", ");
+                    if (actions != "") text += ". Actions: " + actions; 
+                    if (invalid) text += "</color>";
+                    text += "\n";
+                    DebugLog(text);
+                    solutionText.text += text;
+                }
+                solutionText.text += "</size>";
             }
         }
     }
