@@ -53,6 +53,17 @@ namespace KingdomResolution
             settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
             settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
             settings.freeEvents = GUILayout.Toggle(settings.freeEvents, "Enable Free Events  ", GUILayout.ExpandWidth(false));
+
+            KingdomState instance = KingdomState.Instance;
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Kingdom Unrest", GUILayout.ExpandWidth(false));
+            var unrest = (KingdomStatusType)GUILayout.HorizontalSlider((float)instance.Unrest, 0, 5, GUILayout.Width(300));
+            GUILayout.Label(unrest == KingdomStatusType.Metastable ? " Serene" : " " + unrest);
+            if(unrest != instance.Unrest)
+            {
+                instance.SetUnrest(unrest);
+            }
+            GUILayout.EndHorizontal();
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent
