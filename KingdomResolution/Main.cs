@@ -14,9 +14,13 @@ namespace KingdomResolution
 
     public class Main
     {
+        public static UnityModManagerNet.UnityModManager.ModEntry.ModLogger logger;
         [System.Diagnostics.Conditional("DEBUG")]
-        private static void DebugLog(string msg)
-    => Debug.WriteLine(nameof(KingdomResolution) + ": " + msg);
+        public static void DebugLog(string msg)
+        {
+            Debug.WriteLine(nameof(KingdomResolution) + ": " + msg);
+            if (logger != null) logger.Log(msg);
+        }
 
         public static bool enabled;
         static Settings settings;
@@ -31,6 +35,7 @@ namespace KingdomResolution
             modEntry.OnToggle = OnToggle;
             modEntry.OnGUI = OnGUI;
             modEntry.OnSaveGUI = OnSaveGUI;
+            logger = modEntry.Logger;
             return true;
         }
         // Called when the mod is turned to on/off.
@@ -46,24 +51,47 @@ namespace KingdomResolution
         static void OnGUI(UnityModManager.ModEntry modEntry)
         {
             if (!enabled) return;
-            settings.skipTasks = GUILayout.Toggle(settings.skipTasks, "Enable 1 Day Tasks ", GUILayout.ExpandWidth(false));
-            settings.skipProjects = GUILayout.Toggle(settings.skipProjects, "Enable 1 Day Projects ", GUILayout.ExpandWidth(false));
-            settings.skipBaron = GUILayout.Toggle(settings.skipBaron, "Enable 1 Day Baron Projects ", GUILayout.ExpandWidth(false));
-            settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
-            settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
-            settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
-            settings.freeEvents = GUILayout.Toggle(settings.freeEvents, "Enable Free Events  ", GUILayout.ExpandWidth(false));
-
-            KingdomState instance = KingdomState.Instance;
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Kingdom Unrest", GUILayout.ExpandWidth(false));
-            var unrest = (KingdomStatusType)GUILayout.HorizontalSlider((float)instance.Unrest, 0, 5, GUILayout.Width(300));
-            GUILayout.Label(unrest == KingdomStatusType.Metastable ? " Serene" : " " + unrest);
-            if(unrest != instance.Unrest)
+            try
             {
-                instance.SetUnrest(unrest);
+                Func<float, string> percentFormatter = (value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
+                ChooseFactor("Task Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                ChooseFactor("Project Time Factor ", settings.projectTimeFactor, 1, (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                ChooseFactor("Baron Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                ChooseFactor("Event BP Price Factor ", settings.eventPriceFactor, 1,
+                    (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => Math.Round(Math.Round(value, 2) * 100, 0) + " %");
+                KingdomState instance = KingdomState.Instance;
+                if (instance != null)
+                {
+                    ChooseFactor("Kingdom Unrest ", (float)instance.Unrest, 5,
+                        (unrest) => instance.SetUnrest((KingdomStatusType)unrest),
+                        (unrest) => (KingdomStatusType)unrest == KingdomStatusType.Metastable ? " Serene" : " " + (KingdomStatusType)unrest
+                        );
+                }
+
+                settings.skipBaron = GUILayout.Toggle(settings.skipBaron, "Disable baron skip time ", GUILayout.ExpandWidth(false));
+                settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
+                settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
+                settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
+
+
+            } catch(Exception ex)
+            {
+                DebugLog(ex.ToString() + "\n" + ex.StackTrace);
+                throw ex;
             }
+        }
+        static void ChooseFactor(string label, float value, float maxValue, Action<float> setter, Func<float, string> formatter)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(label, GUILayout.Width(200));
+            var newValue = GUILayout.HorizontalSlider(value, 0, maxValue, GUILayout.Width(300));
+            GUILayout.Label(formatter(newValue));
             GUILayout.EndHorizontal();
+            if (newValue != value)
+            {
+                setter(newValue);
+            }
+            ;
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent
@@ -91,19 +119,24 @@ namespace KingdomResolution
                 if (!enabled) return true;
                 //Refer KingdomUIEventWindowFooter.CanGoThroneRoom
                 if (__instance.EventBlueprint.NeedToVisitTheThroneRoom && __instance.AssociatedTask == null) return true;
-                if (settings.skipTasks && __instance.EventBlueprint is BlueprintKingdomEvent)
+                int resolutionTime = __instance.EventBlueprint.ResolutionTime;
+                var timeModifier = Traverse.Create(__instance).Method("GetTimeModifier").GetValue<float>();
+                if (__instance.EventBlueprint is BlueprintKingdomEvent)
                 {
-                    __result = 1;
+                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.eventTimeFactor);
+                    __result = __result < 1 ? 1 : __result;
                     return false;
                 }
-                if (settings.skipProjects && __instance.EventBlueprint is BlueprintKingdomProject)
+                if (__instance.EventBlueprint is BlueprintKingdomProject)
                 {
-                    __result = 1;
+                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.eventTimeFactor);
+                    __result = __result < 1 ? 1 : __result;
                     return false;
                 }
-                if (settings.skipBaron && __instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
+                if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
                 {
-                    __result = 1;
+                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.eventTimeFactor);
+                    __result = __result < 1 ? 1 : __result;
                     return false;
                 }
                 return true;
@@ -144,11 +177,16 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(KingdomEvent), "CalculateBPCost")]
         static class KingdomTimelineManager_CalculateBPCost_Patch
         {
-            static bool Prefix(ref int __result)
+            static bool Prefix(KingdomEvent __instance, ref int __result)
             {
                 if (!enabled) return true;
-                if (!settings.freeEvents) return true;
-                __result = 0;
+                BlueprintKingdomProject blueprintKingdomProject = __instance.EventBlueprint as BlueprintKingdomProject;
+                int bpCost = blueprintKingdomProject != null ? blueprintKingdomProject.ProjectStartBPCost : 0;
+                if (__instance.EventBlueprint is BlueprintKingdomClaim || __instance.EventBlueprint is BlueprintKingdomUpgrade)
+                {
+                    bpCost = Mathf.RoundToInt(bpCost * (1f + KingdomState.Instance.ClaimCostModifier) * settings.eventPriceFactor);
+                }
+                __result = bpCost;
                 return false;
             }
         }

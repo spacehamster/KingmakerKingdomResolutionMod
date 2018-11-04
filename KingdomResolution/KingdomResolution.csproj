@@ -37,7 +37,7 @@
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>C:\Program Files %28x86%29\Steam\steamapps\common\Pathfinder Kingmaker\Mods\KingdomResolution\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
+    <DebugType>portable</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
