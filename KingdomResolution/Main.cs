@@ -18,7 +18,6 @@ namespace KingdomResolution
         [System.Diagnostics.Conditional("DEBUG")]
         public static void DebugLog(string msg)
         {
-            Debug.WriteLine(nameof(KingdomResolution) + ": " + msg);
             if (logger != null) logger.Log(msg);
         }
 
@@ -27,8 +26,6 @@ namespace KingdomResolution
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
-            Debug.Listeners.Add(new TextWriterTraceListener("Mods/KingdomResolution/KingdomResolution.log"));
-            Debug.AutoFlush = true;
             settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
             var harmony = HarmonyInstance.Create(modEntry.Info.Id);
             harmony.PatchAll(Assembly.GetExecutingAssembly());
@@ -91,7 +88,6 @@ namespace KingdomResolution
             {
                 setter(newValue);
             }
-            ;
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent
@@ -102,8 +98,14 @@ namespace KingdomResolution
             static bool Prefix(KingdomTaskEvent __instance, ref int __result)
             {
                 if (!enabled) return true;
-                if (!settings.skipBaron) return true;
-                __result = 0;
+                if (settings.skipBaron)
+                {
+                    __result = 0;
+                }
+                else
+                {
+                    __result = Mathf.RoundToInt(__instance.Event.CalculateRulerTime() * settings.baronTimeFactor);
+                }                
                 return false;
             }
         }
@@ -127,15 +129,15 @@ namespace KingdomResolution
                     __result = __result < 1 ? 1 : __result;
                     return false;
                 }
-                if (__instance.EventBlueprint is BlueprintKingdomProject)
+                if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
                 {
-                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.eventTimeFactor);
+                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.baronTimeFactor);
                     __result = __result < 1 ? 1 : __result;
                     return false;
                 }
-                if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
+                if (__instance.EventBlueprint is BlueprintKingdomProject)
                 {
-                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.eventTimeFactor);
+                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.projectTimeFactor);
                     __result = __result < 1 ? 1 : __result;
                     return false;
                 }
