@@ -51,7 +51,7 @@ namespace KingdomResolution
             try
             {
                 Func<float, string> percentFormatter = (value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
-                ChooseFactor("Task Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                ChooseFactor("Event Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Project Time Factor ", settings.projectTimeFactor, 1, (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Baron Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Event BP Price Factor ", settings.eventPriceFactor, 1,
@@ -119,8 +119,7 @@ namespace KingdomResolution
             static bool Prefix(KingdomEvent __instance, ref int __result)
             {
                 if (!enabled) return true;
-                //Refer KingdomUIEventWindowFooter.CanGoThroneRoom
-                if (__instance.EventBlueprint.NeedToVisitTheThroneRoom && __instance.AssociatedTask == null) return true;
+                if (__instance.EventBlueprint.IsResolveByBaron) return true;
                 int resolutionTime = __instance.EventBlueprint.ResolutionTime;
                 var timeModifier = Traverse.Create(__instance).Method("GetTimeModifier").GetValue<float>();
                 if (__instance.EventBlueprint is BlueprintKingdomEvent)
