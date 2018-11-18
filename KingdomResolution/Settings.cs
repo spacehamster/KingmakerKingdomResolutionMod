@@ -9,13 +9,14 @@ namespace KingdomResolution
 {
     public class Settings : UnityModManager.ModSettings
     {
-        public bool skipTasks = true;
-        public bool skipProjects = true;
-        public bool skipBaron = true;
-        public bool overrideIgnoreEvents = true;
-        public bool easyEvents = true;
-        public bool alwaysInsideKingdom = true;
-        public bool previewResults = true;
+        public float eventTimeFactor = 1;
+        public float projectTimeFactor = 1;
+        public float baronTimeFactor = 1;
+        public float eventPriceFactor = 1;
+        public bool skipBaron = false;
+        public bool overrideIgnoreEvents = false;
+        public bool easyEvents = false;
+        public bool alwaysInsideKingdom = false;
         public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);
