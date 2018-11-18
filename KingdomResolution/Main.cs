@@ -2,7 +2,7 @@
 using UnityModManagerNet;
 using System.Reflection;
 using System;
-using Debug = System.Diagnostics.Debug;
+using System.Linq;
 using System.Diagnostics;
 using Kingmaker.Kingdom.Tasks;
 using UnityEngine;
@@ -13,6 +13,8 @@ using TMPro;
 using Kingmaker.UI.Kingdom;
 using Kingmaker.UnitLogic.Alignments;
 using Kingmaker.Enums;
+using UnityEngine.UI;
+using Kingmaker.Designers.EventConditionActionSystem.Actions;
 
 namespace KingdomResolution
 {
@@ -74,9 +76,9 @@ namespace KingdomResolution
                 settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
-
-
-            } catch(Exception ex)
+                settings.previewResults = GUILayout.Toggle(settings.previewResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
+            }
+            catch (Exception ex)
             {
                 DebugLog(ex.ToString() + "\n" + ex.StackTrace);
                 throw ex;
@@ -180,6 +182,67 @@ namespace KingdomResolution
                 return false;
             }
         }
+        /*
+         * Doesn't work, TextMeshPro just dissapears
+         * 
+         */
+        static void MakeTextScrollable(RectTransform tmp)
+        {
+            var container = tmp.parent.GetComponent<RectTransform>();
+            var scrollerGO = new GameObject("MyGO", typeof(RectTransform), typeof(RectMask2D));
+            var scroller = scrollerGO.AddComponent<ScrollRect>();
+            scroller.transform.parent = container.transform;
+            scroller.content = tmp;
+            scroller.horizontal = false;
+            var scrollerRect = scroller.GetComponent<RectTransform>();
+            scrollerRect.anchorMin = new Vector2(0, 0);
+            scrollerRect.anchorMax = new Vector2(1, 1);
+            scrollerRect.offsetMin = new Vector2(0, 0);
+            scrollerRect.offsetMax = new Vector2(1, 1);
+            var panel = new GameObject("Panel", typeof(RectTransform));
+            panel.AddComponent<VerticalLayoutGroup>();
+            panel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var panelRect = panel.GetComponent<RectTransform>();
+            panelRect.parent = scrollerRect;
+            panelRect.anchorMin = new Vector2(0, 0);
+            panelRect.anchorMax = new Vector2(1, 1);
+            panelRect.offsetMin = new Vector2(0, 0);
+            panelRect.offsetMax = new Vector2(1, 1);
+            tmp.parent = panelRect;
+        }
+        /*
+         * Currently produces a diffrent result to what is observed in game
+         */ 
+        static KingdomStats.Changes CalculateStatChanges(EventResult[] eventResults, EventResult chosenResult, BlueprintKingdomEvent eventBlueprint = null)
+        {
+            var changes = eventBlueprint == null ? new KingdomStats.Changes() : new KingdomStats.Changes(eventBlueprint.StatsOnTrigger);
+            var alignment = chosenResult.LeaderAlignment;
+            foreach(var eventResult in eventResults)
+            {
+                var margin = EventResult.MarginToInt(chosenResult.Margin);
+                if(eventResult.MatchesMargin(margin) && 
+                    (alignment & eventResult.LeaderAlignment) != AlignmentMaskType.None && 
+                    (eventResult.Condition == null || eventResult.Condition.Check(eventBlueprint)))
+                {
+                    changes.Accumulate(eventResult.StatChanges, 1);
+                }
+            }
+            return changes;
+        }
+        static string FormatResult(EventResult eventResult, EventResult[] eventResults, BlueprintKingdomEvent eventBlueprint = null)
+        {
+            string text = "";
+            //var statChangesText = CalculateStatChanges(eventResults, eventResult, eventBlueprint).ToStringWithPrefix(" ");
+            var statChangesText = eventResult.StatChanges.ToStringWithPrefix(" ");
+            text += string.Format("{0}:{1}",
+                eventResult.Margin,
+                statChangesText == "" ? " No Change" : statChangesText);
+            //TODO: Solution for presenting actions
+            //var actions = eventResult.Actions.Actions.Where((action) => action.GetType() != typeof(Conditional)).Join((action) => action.GetType().Name, ", ");
+            //if (actions != "") text += ". Actions: " + actions;
+            text += "\n";
+            return text;
+        }
         [HarmonyPatch(typeof(KingdomUIEventWindow), "SetHeader")]
         static class KingdomUIEventWindow_SetHeader_Patch
         {
@@ -187,11 +250,12 @@ namespace KingdomResolution
             {
                 if (!enabled) return;
                 if (!settings.previewResults) return;
-                if(kingdomEventView.Task == null)
+                if (kingdomEventView.Task == null)
                 {
                     return; //Task is null on event results;
                 }
                 var solutionText = Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>();
+                //MakeTextScrollable(solutionText.transform.parent.GetComponent<RectTransform>());
                 solutionText.text += "\n";
                 var leader = kingdomEventView.Task.AssignedLeader;
                 if (leader == null)
@@ -203,24 +267,52 @@ namespace KingdomResolution
                 var solutions = blueprint.Solutions;
                 var resolutions = solutions.GetResolutions(leader.Type);
                 solutionText.text += "<size=75%>";
-                foreach (var eventResult in resolutions)
+
+                var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
+                Func<EventResult, bool> isValid = (result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
+                var validResults = from resolution in resolutions
+                                   where isValid(resolution)
+                                   select resolution;
+                solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + ", Alignment " + alignmentMask + "\n";
+                foreach (var eventResult in validResults)
                 {
-                    var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
-                    var text = "";
-                    bool invalid = (alignmentMask & eventResult.LeaderAlignment) == AlignmentMaskType.None;
-                    //invalid |= !(eventResult.Condition == null && eventResult.Condition.Check(blueprint));
-                    if(invalid) text += "<color=#808080>";
-                    var statChanges = eventResult.StatChanges.ToStringWithPrefix(" ");
-                    text += string.Format("{0}:{1}",
-                        eventResult.Margin,
-                        statChanges == "" ? " No Change" : statChanges);
-                    //TODO: Human readable action names
-                    var actions = eventResult.Actions.Actions.Join((action) => action.name, ", ");
-                    if (actions != "") text += ". Actions: " + actions; 
-                    if (invalid) text += "</color>";
-                    text += "\n";
-                    DebugLog(text);
-                    solutionText.text += text;
+                    solutionText.text += FormatResult(eventResult, resolutions, kingdomEventView.EventBlueprint);
+                }
+                int bestResult = 0;
+                EventResult bestEventResult = null;
+                LeaderType bestLeader = 0;
+                foreach (var solution in solutions.Entries)
+                {
+                    foreach (var eventResult in solution.Resolutions)
+                    {
+                        int sum = 0;
+                        for (int i = 0; i < 10; i++) sum += eventResult.StatChanges[(KingdomStats.Type)i];
+                        if (sum > bestResult)
+                        {
+                            bestResult = sum;
+                            bestLeader = solution.Leader;
+                            bestEventResult = eventResult;
+                        }
+                    }
+                }
+
+                if (bestEventResult != null)
+                {
+                    solutionText.text += "<size=50%>\n<size=75%>";
+                    solutionText.text += "Best Result: Leader " + bestLeader + " " + bestEventResult.LeaderAlignment + "\n";
+                    if (isValid(bestEventResult) && bestLeader == leader.Type)
+                    {
+                        solutionText.text += "<color=#308014>";
+                    } else
+                    {
+                        solutionText.text += "<color=#808080>";
+                    }
+
+                    solutionText.text += FormatResult(bestEventResult, solutions.GetResolutions(bestLeader), kingdomEventView.EventBlueprint);
+                    if (!isValid(bestEventResult))
+                    {
+                        solutionText.text += "</color>";
+                    }
                 }
                 solutionText.text += "</size>";
             }
