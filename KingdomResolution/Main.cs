@@ -182,53 +182,6 @@ namespace KingdomResolution
                 return false;
             }
         }
-        /*
-         * Doesn't work, TextMeshPro just dissapears
-         * 
-         */
-        static void MakeTextScrollable(RectTransform tmp)
-        {
-            var container = tmp.parent.GetComponent<RectTransform>();
-            var scrollerGO = new GameObject("MyGO", typeof(RectTransform), typeof(RectMask2D));
-            var scroller = scrollerGO.AddComponent<ScrollRect>();
-            scroller.transform.parent = container.transform;
-            scroller.content = tmp;
-            scroller.horizontal = false;
-            var scrollerRect = scroller.GetComponent<RectTransform>();
-            scrollerRect.anchorMin = new Vector2(0, 0);
-            scrollerRect.anchorMax = new Vector2(1, 1);
-            scrollerRect.offsetMin = new Vector2(0, 0);
-            scrollerRect.offsetMax = new Vector2(1, 1);
-            var panel = new GameObject("Panel", typeof(RectTransform));
-            panel.AddComponent<VerticalLayoutGroup>();
-            panel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var panelRect = panel.GetComponent<RectTransform>();
-            panelRect.parent = scrollerRect;
-            panelRect.anchorMin = new Vector2(0, 0);
-            panelRect.anchorMax = new Vector2(1, 1);
-            panelRect.offsetMin = new Vector2(0, 0);
-            panelRect.offsetMax = new Vector2(1, 1);
-            tmp.parent = panelRect;
-        }
-        /*
-         * Currently produces a diffrent result to what is observed in game
-         */ 
-        static KingdomStats.Changes CalculateStatChanges(EventResult[] eventResults, EventResult chosenResult, BlueprintKingdomEvent eventBlueprint = null)
-        {
-            var changes = eventBlueprint == null ? new KingdomStats.Changes() : new KingdomStats.Changes(eventBlueprint.StatsOnTrigger);
-            var alignment = chosenResult.LeaderAlignment;
-            foreach(var eventResult in eventResults)
-            {
-                var margin = EventResult.MarginToInt(chosenResult.Margin);
-                if(eventResult.MatchesMargin(margin) && 
-                    (alignment & eventResult.LeaderAlignment) != AlignmentMaskType.None && 
-                    (eventResult.Condition == null || eventResult.Condition.Check(eventBlueprint)))
-                {
-                    changes.Accumulate(eventResult.StatChanges, 1);
-                }
-            }
-            return changes;
-        }
         static string FormatResult(EventResult eventResult, EventResult[] eventResults, BlueprintKingdomEvent eventBlueprint = null)
         {
             string text = "";
