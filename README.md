@@ -1,9 +1,11 @@
 # KingmakerKingdomResolutionMod
-Resolve Kingdom Events in one day. 
-
-Remove requirement for baron to spend 14 days to level up advisors.
-
-Modify Event DC for better rewards
+* Kingdom Events in one day. 
+* Remove requirement for baron to spend 14 days to level up advisors.
+* Modify Event DC for better rewards
+* Manage Kingdom outside of claimed regions.
+* Adjust Event BP requirements
+* Change Kingdom Unrest
+* Preview Event Results
 
 ## Install
 1. Download and install [Unity Mod Manager](https://www.nexusmods.com/site/mods/21)
