@@ -79,7 +79,8 @@ namespace KingdomResolution
                 settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
-                settings.previewResults = GUILayout.Toggle(settings.previewResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
+                settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
+                settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 ChooseKingdomUnreset();
             }
             catch (Exception ex)
@@ -126,18 +127,17 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(KingdomTaskEvent), "SkipPlayerTime", MethodType.Getter)]
         static class KingdomTaskEvent_SkipPlayerTime_Patch
         {
-            static bool Prefix(KingdomTaskEvent __instance, ref int __result)
+            static void Postfix(KingdomTaskEvent __instance, ref int __result)
             {
-                if (!enabled) return true;
+                if (!enabled) return;
                 if (settings.skipBaron)
                 {
                     __result = 0;
                 }
                 else
                 {
-                    __result = Mathf.RoundToInt(__instance.Event.CalculateRulerTime() * settings.baronTimeFactor);
+                    __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
                 }                
-                return false;
             }
         }
         /*
@@ -147,53 +147,47 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(KingdomEvent), "CalculateResolutionTime")]
         static class KingdomEvent_CalculateResolutionTime_Patch
         {
-            static bool Prefix(KingdomEvent __instance, ref int __result)
+            static void Postfix(KingdomEvent __instance, ref int __result)
             {
-                if (!enabled) return true;
-                if (__instance.EventBlueprint.IsResolveByBaron) return true;
+                if (!enabled) return;
+                if (__instance.EventBlueprint.IsResolveByBaron) return;
                 int resolutionTime = __instance.EventBlueprint.ResolutionTime;
                 var timeModifier = Traverse.Create(__instance).Method("GetTimeModifier").GetValue<float>();
                 if (__instance.EventBlueprint is BlueprintKingdomEvent)
                 {
-                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.eventTimeFactor);
+                    __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
                     __result = __result < 1 ? 1 : __result;
-                    return false;
                 }
                 if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
                 {
-                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.baronTimeFactor);
+                    __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
                     __result = __result < 1 ? 1 : __result;
-                    return false;
                 }
                 if (__instance.EventBlueprint is BlueprintKingdomProject)
                 {
-                    __result = Mathf.RoundToInt((float)resolutionTime * (1f + timeModifier) * settings.projectTimeFactor);
+                    __result = Mathf.RoundToInt(__result * settings.projectTimeFactor);
                     __result = __result < 1 ? 1 : __result;
-                    return false;
                 }
-                return true;
             }
         }
         [HarmonyPatch(typeof(KingdomTaskEvent), "GetDC")]
         static class KingdomTaskEvent_GetDC_Patch
         {
-            static bool Prefix(ref int __result)
+            static void Postfix(ref int __result)
             {
-                if (!enabled) return true;
-                if (!settings.easyEvents) return true;
+                if (!enabled) return;
+                if (!settings.easyEvents) return;
                 __result = -100;
-                return false;
             }
         }
         [HarmonyPatch(typeof(KingdomState), "IsPartyInsideKingdom", MethodType.Getter)]
         static class KingdomState_IsPartyInsideKingdom_Patch
         {
-            static bool Prefix(ref bool __result)
+            static void Postfix(ref bool __result)
             {
-                if (!enabled) return true;
-                if (!settings.alwaysInsideKingdom) return true;
+                if (!enabled) return;
+                if (!settings.alwaysInsideKingdom) return;
                 __result = true;
-                return false;
             }
         }
         [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
@@ -204,6 +198,16 @@ namespace KingdomResolution
                 if (!enabled) return true;
                 if (!settings.overrideIgnoreEvents) return true;
                 return false;
+            }
+        }
+        [HarmonyPatch(typeof(KingdomEvent), "CalculateBPCost")]
+        static class KingdomTimelineManager_CalculateBPCost_Patch
+        {
+            static void Postfix(KingdomEvent __instance, ref int __result)
+            {
+                if (!enabled) return;
+                __result = Mathf.RoundToInt(__result * settings.eventPriceFactor);
+                return;
             }
         }
         static string FormatResult(EventResult eventResult, EventResult[] eventResults, BlueprintKingdomEvent eventBlueprint = null)
@@ -248,10 +252,11 @@ namespace KingdomResolution
         {
             static void Postfix(ref string __result, BlueprintAnswer answer)
             {
-                if (!settings.previewResults) return;
+                if (!settings.previewDialogResults) return;
+
                 if (answer.OnSelect.HasActions)
                 {
-                    __result += " \n<size=75%>[" + answer.OnSelect.Actions.Join((action) => action.GetCaption()) + "]</size>"; 
+                    __result += " \n<size=75%>[" + answer.OnSelect.Actions.Join((action) => FormatAction(action).Join()) + "]</size>"; 
                 }
             }
         }
@@ -326,7 +331,7 @@ namespace KingdomResolution
             static void Postfix(KingdomUIEventWindow __instance, KingdomEventUIView kingdomEventView)
             {
                 if (!enabled) return;
-                if (!settings.previewResults) return;
+                if (!settings.previewEventResults) return;
                 if (kingdomEventView.Task == null)
                 {
                     return; //Task is null on event results;
