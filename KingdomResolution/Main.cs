@@ -15,6 +15,12 @@ using Kingmaker.UnitLogic.Alignments;
 using Kingmaker.Enums;
 using UnityEngine.UI;
 using Kingmaker.Designers.EventConditionActionSystem.Actions;
+using Kingmaker.Controllers.Dialog;
+using static UnityModManagerNet.UnityModManager;
+using Kingmaker.DialogSystem.Blueprints;
+using System.Collections.Generic;
+using Kingmaker.Utility;
+using Kingmaker.ElementsSystem;
 
 namespace KingdomResolution
 {
@@ -33,13 +39,19 @@ namespace KingdomResolution
 
         static bool Load(UnityModManager.ModEntry modEntry)
         {
-            settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-            var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-            modEntry.OnToggle = OnToggle;
-            modEntry.OnGUI = OnGUI;
-            modEntry.OnSaveGUI = OnSaveGUI;
-            logger = modEntry.Logger;
+            try
+            {
+                logger = modEntry.Logger;
+                settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                modEntry.OnToggle = OnToggle;
+                modEntry.OnGUI = OnGUI;
+                modEntry.OnSaveGUI = OnSaveGUI;
+            } catch(Exception ex)
+            {
+                DebugLog(ex.ToString() + "\n" + ex.StackTrace);
+            }
             return true;
         }
         // Called when the mod is turned to on/off.
@@ -208,6 +220,106 @@ namespace KingdomResolution
             text += "\n";
             return text;
         }
+        static List<String> ResolveConditional(Conditional conditional)
+        {
+            var actionList = conditional.ConditionsChecker.Check(null) ? conditional.IfTrue : conditional.IfFalse;
+            var result = new List<String>();
+            foreach(var action in actionList.Actions)
+            {
+                result.AddRange(FormatAction(action));
+            }
+            return result;
+        }
+        static List<string> FormatAction(GameAction action)
+        {
+            if(action is Conditional)
+            {
+                return ResolveConditional(action as Conditional);
+            }
+            var result = new List<string>();
+            result.Add(action.GetCaption());
+            return result;
+        }
+        /*
+         * Note: answer.NextCue can have actions associated with it, should those be shown?
+         */ 
+        [HarmonyPatch(typeof(UIConsts), "GetAnswerString")]
+        static class UIConsts_GetAnswerString_Patch
+        {
+            static void Postfix(ref string __result, BlueprintAnswer answer)
+            {
+                if (!settings.previewResults) return;
+                if (answer.OnSelect.HasActions)
+                {
+                    __result += " \n<size=75%>[" + answer.OnSelect.Actions.Join((action) => action.GetCaption()) + "]</size>"; 
+                }
+            }
+        }
+#if (DEBUG)
+        [HarmonyPatch(typeof(Kingmaker.UI.Dialog.DialogController), "HandleOnCueShow")]
+        static class DialogController_HandleOnCueShow_Patch
+        {
+            static void Postfix(DialogController __instance, CueShowData data)
+            {
+                try
+                {
+                    DebugLog("Showing Cue " + data?.Cue?.name ?? "NULL");
+                    DebugLog(data?.Cue?.DisplayText ?? "No Display Text");
+                    if (data?.Cue?.Answers?.Count != null && data?.Cue?.Answers?.Count > 0)
+                    {
+                        DebugLog($"Answers {data?.Cue?.Answers?.Count}");
+                    }
+                    foreach (var answerBase in data.Cue.Answers)
+                    {
+                        var answers = new List<BlueprintAnswer>();
+                        if(answerBase is BlueprintAnswersList)
+                        {
+                            var answersList = answerBase as BlueprintAnswersList;
+                            foreach(var answer in answersList.Answers)
+                            {
+                                if (answer is BlueprintAnswer) answers.Add(answer as BlueprintAnswer);
+                                else DebugLog($" Found {answer.GetType()} in AnswersList");
+                            }
+                        }
+                        if (answerBase is BlueprintAnswer)
+                        {
+                            answers.Add(answerBase as BlueprintAnswer);         
+                        }
+                        foreach(var answer in answers)
+                        {
+                            DebugLog($" {answer?.name} - {answerBase?.ParentAsset?.name}");
+                            DebugLog($" Text: {answer.Text}");
+                            DebugLog($" Cues: {answer.NextCue.Cues.Count}");
+                            foreach (var cue in answer.NextCue.Cues)
+                            {
+                                //DebugLog($"  Cue {cue.name}");
+                            }
+                        }
+                    }
+                    DebugLog($"Continue {data.Cue.Continue?.Cues?.Count}");
+                    foreach (var cue in data.Cue.Continue.Cues)
+                    {
+                        DebugLog($" Continue: {cue.name} - {cue.GetType()}");
+                        DebugLog($" {cue.ToString()}");
+                    }
+                    DebugLog($"OnShow {data?.Cue?.OnShow?.Actions?.Length}");
+                    foreach (var action in data.Cue.OnShow.Actions)
+                    {
+                        DebugLog($" {action?.GetType()?.Name} - {action?.GetCaption()}");
+                    }
+                    DebugLog($"OnStop {data?.Cue?.OnShow?.Actions?.Length}");
+                    foreach (var action in data?.Cue?.OnShow?.Actions)
+                    {
+                        DebugLog($" {action?.GetType()?.Name} - {action?.GetCaption()}");
+                    }
+                    DebugLog("");
+                } catch(Exception ex)
+                {
+                    DebugLog(ex.ToString() + "\n" + ex.ToString());
+                }
+            }
+        }
+#endif
         [HarmonyPatch(typeof(KingdomUIEventWindow), "SetHeader")]
         static class KingdomUIEventWindow_SetHeader_Patch
         {
