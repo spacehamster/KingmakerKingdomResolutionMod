@@ -151,8 +151,6 @@ namespace KingdomResolution
             {
                 if (!enabled) return;
                 if (__instance.EventBlueprint.IsResolveByBaron) return;
-                int resolutionTime = __instance.EventBlueprint.ResolutionTime;
-                var timeModifier = Traverse.Create(__instance).Method("GetTimeModifier").GetValue<float>();
                 if (__instance.EventBlueprint is BlueprintKingdomEvent)
                 {
                     __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
@@ -352,9 +350,7 @@ namespace KingdomResolution
 
                 var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
                 Func<EventResult, bool> isValid = (result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
-                var validResults = from resolution in resolutions
-                                   where isValid(resolution)
-                                   select resolution;
+                var validResults = resolutions.Where(isValid);
                 solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + " - Alignment " + alignmentMask + "\n";
                 foreach (var eventResult in validResults)
                 {
