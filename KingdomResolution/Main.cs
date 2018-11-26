@@ -75,7 +75,7 @@ namespace KingdomResolution
                 ChooseFactor("Baron Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Event BP Price Factor ", settings.eventPriceFactor, 1,
                     (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => Math.Round(Math.Round(value, 2) * 100, 0) + " %");
-                settings.skipBaron = GUILayout.Toggle(settings.skipBaron, "Disable baron skip time ", GUILayout.ExpandWidth(false));
+                settings.skipPlayerTime = GUILayout.Toggle(settings.skipPlayerTime, "Disable Skip Player Time ", GUILayout.ExpandWidth(false));
                 settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
@@ -158,12 +158,12 @@ namespace KingdomResolution
                     __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
                     __result = __result < 1 ? 1 : __result;
                 }
-                if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
+                else if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
                 {
                     __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
                     __result = __result < 1 ? 1 : __result;
                 }
-                if (__instance.EventBlueprint is BlueprintKingdomProject)
+                else if (__instance.EventBlueprint is BlueprintKingdomProject)
                 {
                     __result = Mathf.RoundToInt(__result * settings.projectTimeFactor);
                     __result = __result < 1 ? 1 : __result;

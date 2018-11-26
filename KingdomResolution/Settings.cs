@@ -13,7 +13,7 @@ namespace KingdomResolution
         public float projectTimeFactor = 1;
         public float baronTimeFactor = 1;
         public float eventPriceFactor = 1;
-        public bool skipBaron = false;
+        public bool skipPlayerTime = false;
         public bool overrideIgnoreEvents = false;
         public bool easyEvents = false;
         public bool alwaysInsideKingdom = false;
