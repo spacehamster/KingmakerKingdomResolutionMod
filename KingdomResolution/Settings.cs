@@ -16,7 +16,8 @@ namespace KingdomResolution
         public bool skipPlayerTime = false;
         public bool overrideIgnoreEvents = false;
         public bool easyEvents = false;
-        public bool alwaysInsideKingdom = false;
+        public bool alwaysManageKingdom = false;
+        public bool alwaysBaronProcurement = false;
         public bool previewEventResults = false;
         public bool previewDialogResults = false;
         public override void Save(UnityModManager.ModEntry modEntry)

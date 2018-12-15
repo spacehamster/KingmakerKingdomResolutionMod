@@ -3,7 +3,6 @@ using UnityModManagerNet;
 using System.Reflection;
 using System;
 using System.Linq;
-using System.Diagnostics;
 using Kingmaker.Kingdom.Tasks;
 using UnityEngine;
 using Kingmaker.Kingdom;
@@ -13,10 +12,8 @@ using TMPro;
 using Kingmaker.UI.Kingdom;
 using Kingmaker.UnitLogic.Alignments;
 using Kingmaker.Enums;
-using UnityEngine.UI;
 using Kingmaker.Designers.EventConditionActionSystem.Actions;
 using Kingmaker.Controllers.Dialog;
-using static UnityModManagerNet.UnityModManager;
 using Kingmaker.DialogSystem.Blueprints;
 using System.Collections.Generic;
 using Kingmaker.Utility;
@@ -33,24 +30,29 @@ namespace KingdomResolution
         {
             if (logger != null) logger.Log(msg);
         }
-
+        public static void DebugError(string msg)
+        {
+            if (logger != null) logger.Log(msg);
+        }
         public static bool enabled;
         static Settings settings;
-
+        static string modId;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
             {
-                logger = modEntry.Logger;
-                settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-                harmony.PatchAll(Assembly.GetExecutingAssembly());
-                modEntry.OnToggle = OnToggle;
-                modEntry.OnGUI = OnGUI;
-                modEntry.OnSaveGUI = OnSaveGUI;
+            logger = modEntry.Logger;
+            modId = modEntry.Info.Id;
+            settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
+            var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            modEntry.OnToggle = OnToggle;
+            modEntry.OnGUI = OnGUI;
+            modEntry.OnSaveGUI = OnSaveGUI;
             } catch(Exception ex)
             {
-                DebugLog(ex.ToString() + "\n" + ex.StackTrace);
+                DebugError(ex.ToString() + "\n" + ex.StackTrace);
+                throw ex;   
             }
             return true;
         }
@@ -72,11 +74,12 @@ namespace KingdomResolution
                 Func<float, string> percentFormatter = (value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
                 ChooseFactor("Event Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Project Time Factor ", settings.projectTimeFactor, 1, (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
-                ChooseFactor("Baron Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                ChooseFactor("Ruler Managed Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Event BP Price Factor ", settings.eventPriceFactor, 1,
                     (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => Math.Round(Math.Round(value, 2) * 100, 0) + " %");
                 settings.skipPlayerTime = GUILayout.Toggle(settings.skipPlayerTime, "Disable Skip Player Time ", GUILayout.ExpandWidth(false));
-                settings.alwaysInsideKingdom = GUILayout.Toggle(settings.alwaysInsideKingdom, "Always Inside Kingdom  ", GUILayout.ExpandWidth(false));
+                settings.alwaysManageKingdom = GUILayout.Toggle(settings.alwaysManageKingdom, "Enable Manage Kingdom Everywhere ", GUILayout.ExpandWidth(false));
+                settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only) ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
@@ -86,7 +89,6 @@ namespace KingdomResolution
             catch (Exception ex)
             {
                 DebugLog(ex.ToString() + "\n" + ex.StackTrace);
-                throw ex;
             }
         }
         static void ChooseKingdomUnreset()
@@ -99,13 +101,13 @@ namespace KingdomResolution
             if (GUILayout.Button("More Unrest"))
             {
                 if (instance.Unrest != KingdomStatusType.Crumbling) {
-                    instance.SetUnrest(instance.Unrest - 1);
+                    instance.SetUnrest(instance.Unrest - 1, KingdomStatusChangeReason.None, modId);
                 }
             }
             if (GUILayout.Button("Less Unrest"))
             {
                 if (instance.Unrest == KingdomStatusType.Metastable) return;
-                instance.SetUnrest(instance.Unrest + 1);
+                instance.SetUnrest(instance.Unrest + 1, KingdomStatusChangeReason.None, modId);
             }
             GUILayout.EndHorizontal();
         }
@@ -130,7 +132,7 @@ namespace KingdomResolution
             static void Postfix(KingdomTaskEvent __instance, ref int __result)
             {
                 if (!enabled) return;
-                if (settings.skipBaron)
+                if (settings.skipPlayerTime)
                 {
                     __result = 0;
                 }
@@ -168,6 +170,16 @@ namespace KingdomResolution
                 }
             }
         }
+        [HarmonyPatch(typeof(KingdomEvent), "CalculateBPCost")]
+        static class KingdomEvent_CalculateBPCost_Patch
+        {
+            static void Postfix(KingdomEvent __instance, ref int __result)
+            {
+                if (!enabled) return;
+                __result = Mathf.RoundToInt(__result * settings.eventPriceFactor);
+                return;
+            }
+        }
         [HarmonyPatch(typeof(KingdomTaskEvent), "GetDC")]
         static class KingdomTaskEvent_GetDC_Patch
         {
@@ -178,13 +190,23 @@ namespace KingdomResolution
                 __result = -100;
             }
         }
-        [HarmonyPatch(typeof(KingdomState), "IsPartyInsideKingdom", MethodType.Getter)]
-        static class KingdomState_IsPartyInsideKingdom_Patch
+        [HarmonyPatch(typeof(KingdomState), "CanSeeKingdomFromGlobalMap", MethodType.Getter)]
+        static class KingdomState_CanSeeKingdomFromGlobalMap_Patch
         {
             static void Postfix(ref bool __result)
             {
                 if (!enabled) return;
-                if (!settings.alwaysInsideKingdom) return;
+                if (!settings.alwaysManageKingdom) return;
+                __result = true;
+            }
+        }
+        [HarmonyPatch(typeof(KingdomState), "PartyIsInKingdomBorders", MethodType.Getter)]
+        static class KingdomState_PartyIsInKingdomBorders_Patch
+        {
+            static void Postfix(ref bool __result)
+            {
+                if (!enabled) return;
+                if (!settings.alwaysBaronProcurement) return;
                 __result = true;
             }
         }
@@ -196,16 +218,6 @@ namespace KingdomResolution
                 if (!enabled) return true;
                 if (!settings.overrideIgnoreEvents) return true;
                 return false;
-            }
-        }
-        [HarmonyPatch(typeof(KingdomEvent), "CalculateBPCost")]
-        static class KingdomTimelineManager_CalculateBPCost_Patch
-        {
-            static void Postfix(KingdomEvent __instance, ref int __result)
-            {
-                if (!enabled) return;
-                __result = Mathf.RoundToInt(__result * settings.eventPriceFactor);
-                return;
             }
         }
         static string FormatResult(EventResult eventResult, EventResult[] eventResults, BlueprintKingdomEvent eventBlueprint = null)
