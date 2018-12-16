@@ -30,9 +30,9 @@ namespace KingdomResolution
         {
             if (logger != null) logger.Log(msg);
         }
-        public static void DebugError(string msg)
+        public static void DebugError(Exception ex)
         {
-            if (logger != null) logger.Log(msg);
+            if (logger != null) logger.Log(ex.ToString() + "\n" + ex.StackTrace);
         }
         public static bool enabled;
         static Settings settings;
@@ -51,7 +51,7 @@ namespace KingdomResolution
             modEntry.OnSaveGUI = OnSaveGUI;
             } catch(Exception ex)
             {
-                DebugError(ex.ToString() + "\n" + ex.StackTrace);
+                DebugError(ex);
                 throw ex;   
             }
             return true;
@@ -88,7 +88,8 @@ namespace KingdomResolution
             }
             catch (Exception ex)
             {
-                DebugLog(ex.ToString() + "\n" + ex.StackTrace);
+                DebugError(ex);
+                throw ex;
             }
         }
         static void ChooseKingdomUnreset()
@@ -131,15 +132,21 @@ namespace KingdomResolution
         {
             static void Postfix(KingdomTaskEvent __instance, ref int __result)
             {
-                if (!enabled) return;
-                if (settings.skipPlayerTime)
+                try
                 {
-                    __result = 0;
+                    if (!enabled) return;
+                    if (settings.skipPlayerTime)
+                    {
+                        __result = 0;
+                    }
+                    else
+                    {
+                        __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
+                    }
+                } catch(Exception ex)
+                {
+                    DebugError(ex);
                 }
-                else
-                {
-                    __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
-                }                
             }
         }
         /*
@@ -151,22 +158,29 @@ namespace KingdomResolution
         {
             static void Postfix(KingdomEvent __instance, ref int __result)
             {
-                if (!enabled) return;
-                if (__instance.EventBlueprint.IsResolveByBaron) return;
-                if (__instance.EventBlueprint is BlueprintKingdomEvent)
+                try
                 {
-                    __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
-                    __result = __result < 1 ? 1 : __result;
+                    if (!enabled) return;
+                    if (__instance.EventBlueprint.IsResolveByBaron) return;
+                    if (__instance.EventBlueprint is BlueprintKingdomEvent)
+                    {
+                        __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
+                        __result = __result < 1 ? 1 : __result;
+                    }
+                    else if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
+                    {
+                        __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
+                        __result = __result < 1 ? 1 : __result;
+                    }
+                    else if (__instance.EventBlueprint is BlueprintKingdomProject)
+                    {
+                        __result = Mathf.RoundToInt(__result * settings.projectTimeFactor);
+                        __result = __result < 1 ? 1 : __result;
+                    }
                 }
-                else if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
+                catch (Exception ex)
                 {
-                    __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
-                    __result = __result < 1 ? 1 : __result;
-                }
-                else if (__instance.EventBlueprint is BlueprintKingdomProject)
-                {
-                    __result = Mathf.RoundToInt(__result * settings.projectTimeFactor);
-                    __result = __result < 1 ? 1 : __result;
+                    DebugError(ex);
                 }
             }
         }
@@ -175,9 +189,14 @@ namespace KingdomResolution
         {
             static void Postfix(KingdomEvent __instance, ref int __result)
             {
-                if (!enabled) return;
-                __result = Mathf.RoundToInt(__result * settings.eventPriceFactor);
-                return;
+                try
+                {
+                    if (!enabled) return;
+                    __result = Mathf.RoundToInt(__result * settings.eventPriceFactor);
+                } catch(Exception ex)
+                {
+                    DebugError(ex);
+                }
             }
         }
         [HarmonyPatch(typeof(KingdomTaskEvent), "GetDC")]
@@ -185,9 +204,15 @@ namespace KingdomResolution
         {
             static void Postfix(ref int __result)
             {
-                if (!enabled) return;
-                if (!settings.easyEvents) return;
-                __result = -100;
+                try
+                {
+                    if (!enabled) return;
+                    if (!settings.easyEvents) return;
+                    __result = -100;
+                } catch(Exception ex)
+                {
+                    DebugError(ex);
+                }
             }
         }
         [HarmonyPatch(typeof(KingdomState), "CanSeeKingdomFromGlobalMap", MethodType.Getter)]
@@ -195,9 +220,16 @@ namespace KingdomResolution
         {
             static void Postfix(ref bool __result)
             {
-                if (!enabled) return;
-                if (!settings.alwaysManageKingdom) return;
-                __result = true;
+                try
+                {
+                    if (!enabled) return;
+                    if (!settings.alwaysManageKingdom) return;
+                    __result = true;
+                }
+                catch (Exception ex)
+                {
+                    DebugError(ex);
+                }
             }
         }
         [HarmonyPatch(typeof(KingdomState), "PartyIsInKingdomBorders", MethodType.Getter)]
@@ -205,9 +237,16 @@ namespace KingdomResolution
         {
             static void Postfix(ref bool __result)
             {
-                if (!enabled) return;
-                if (!settings.alwaysBaronProcurement) return;
-                __result = true;
+                try
+                {
+                    if (!enabled) return;
+                    if (!settings.alwaysBaronProcurement) return;
+                    __result = true;
+                }
+                catch (Exception ex)
+                {
+                    DebugError(ex);
+                }
             }
         }
         [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
@@ -215,9 +254,16 @@ namespace KingdomResolution
         {
             static bool Prefix()
             {
-                if (!enabled) return true;
-                if (!settings.overrideIgnoreEvents) return true;
-                return false;
+                try
+                {
+                    if (!enabled) return true;
+                    if (!settings.overrideIgnoreEvents) return true;
+                    return false;
+                } catch(Exception ex)
+                {
+                    DebugError(ex);
+                    return true;
+                }
             }
         }
         static string FormatResult(EventResult eventResult, EventResult[] eventResults, BlueprintKingdomEvent eventBlueprint = null)
@@ -262,11 +308,15 @@ namespace KingdomResolution
         {
             static void Postfix(ref string __result, BlueprintAnswer answer)
             {
-                if (!settings.previewDialogResults) return;
-
-                if (answer.OnSelect.HasActions)
+                try
                 {
-                    __result += " \n<size=75%>[" + answer.OnSelect.Actions.Join((action) => FormatAction(action).Join()) + "]</size>"; 
+                    if (!settings.previewDialogResults) return;                    if (answer.OnSelect.HasActions)
+                    {
+                        __result += " \n<size=75%>[" + answer.OnSelect.Actions.Join((action) => FormatAction(action).Join()) + "]</size>";
+                    }
+                } catch(Exception ex)
+                {
+                    DebugError(ex);
                 }
             }
         }
@@ -340,71 +390,79 @@ namespace KingdomResolution
         {
             static void Postfix(KingdomUIEventWindow __instance, KingdomEventUIView kingdomEventView)
             {
-                if (!enabled) return;
-                if (!settings.previewEventResults) return;
-                if (kingdomEventView.Task == null)
+                try
                 {
-                    return; //Task is null on event results;
-                }
-                var solutionText = Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>();
-                //MakeTextScrollable(solutionText.transform.parent.GetComponent<RectTransform>());
-                solutionText.text += "\n";
-                var leader = kingdomEventView.Task.AssignedLeader;
-                if (leader == null)
-                {
-                    solutionText.text += "<size=75%>Select a leader to preview results</size>";
-                    return;
-                }
-                var blueprint = kingdomEventView.Blueprint;
-                var solutions = blueprint.Solutions;
-                var resolutions = solutions.GetResolutions(leader.Type);
-                solutionText.text += "<size=75%>";
-
-                var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
-                Func<EventResult, bool> isValid = (result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
-                var validResults = resolutions.Where(isValid);
-                solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + " - Alignment " + alignmentMask + "\n";
-                foreach (var eventResult in validResults)
-                {
-                    solutionText.text += FormatResult(eventResult, resolutions, kingdomEventView.EventBlueprint);
-                }
-                int bestResult = 0;
-                EventResult bestEventResult = null;
-                LeaderType bestLeader = 0;
-                foreach (var solution in solutions.Entries)
-                {
-                    foreach (var eventResult in solution.Resolutions)
+                    if (!enabled) return;
+                    if (!settings.previewEventResults) return;
+                    if (kingdomEventView.Task == null)
                     {
-                        int sum = 0;
-                        for (int i = 0; i < 10; i++) sum += eventResult.StatChanges[(KingdomStats.Type)i];
-                        if (sum > bestResult)
+                        return; //Task is null on event results;
+                    }
+                    var solutionText = Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>();
+                    //MakeTextScrollable(solutionText.transform.parent.GetComponent<RectTransform>());
+                    solutionText.text += "\n";
+                    var leader = kingdomEventView.Task.AssignedLeader;
+                    if (leader == null)
+                    {
+                        solutionText.text += "<size=75%>Select a leader to preview results</size>";
+                        return;
+                    }
+                    var blueprint = kingdomEventView.Blueprint;
+                    var solutions = blueprint.Solutions;
+                    var resolutions = solutions.GetResolutions(leader.Type);
+                    solutionText.text += "<size=75%>";
+
+                    var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
+                    Func<EventResult, bool> isValid = (result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
+                    var validResults = resolutions.Where(isValid);
+                    solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + " - Alignment " + alignmentMask + "\n";
+                    foreach (var eventResult in validResults)
+                    {
+                        solutionText.text += FormatResult(eventResult, resolutions, kingdomEventView.EventBlueprint);
+                    }
+                    int bestResult = 0;
+                    EventResult bestEventResult = null;
+                    LeaderType bestLeader = 0;
+                    foreach (var solution in solutions.Entries)
+                    {
+                        foreach (var eventResult in solution.Resolutions)
                         {
-                            bestResult = sum;
-                            bestLeader = solution.Leader;
-                            bestEventResult = eventResult;
+                            int sum = 0;
+                            for (int i = 0; i < 10; i++) sum += eventResult.StatChanges[(KingdomStats.Type)i];
+                            if (sum > bestResult)
+                            {
+                                bestResult = sum;
+                                bestLeader = solution.Leader;
+                                bestEventResult = eventResult;
+                            }
                         }
                     }
-                }
 
-                if (bestEventResult != null)
+                    if (bestEventResult != null)
+                    {
+                        solutionText.text += "<size=50%>\n<size=75%>";
+                        solutionText.text += "Best Result: Leader " + bestLeader + " - Alignment " + bestEventResult.LeaderAlignment + "\n";
+                        if (isValid(bestEventResult) && bestLeader == leader.Type)
+                        {
+                            solutionText.text += "<color=#308014>";
+                        }
+                        else
+                        {
+                            solutionText.text += "<color=#808080>";
+                        }
+
+                        solutionText.text += FormatResult(bestEventResult, solutions.GetResolutions(bestLeader), kingdomEventView.EventBlueprint);
+                        if (!isValid(bestEventResult))
+                        {
+                            solutionText.text += "</color>";
+                        }
+                    }
+                    solutionText.text += "</size>";
+                }
+                catch (Exception ex)
                 {
-                    solutionText.text += "<size=50%>\n<size=75%>";
-                    solutionText.text += "Best Result: Leader " + bestLeader + " - Alignment " + bestEventResult.LeaderAlignment + "\n";
-                    if (isValid(bestEventResult) && bestLeader == leader.Type)
-                    {
-                        solutionText.text += "<color=#308014>";
-                    } else
-                    {
-                        solutionText.text += "<color=#808080>";
-                    }
-
-                    solutionText.text += FormatResult(bestEventResult, solutions.GetResolutions(bestLeader), kingdomEventView.EventBlueprint);
-                    if (!isValid(bestEventResult))
-                    {
-                        solutionText.text += "</color>";
-                    }
+                    DebugError(ex);
                 }
-                solutionText.text += "</size>";
             }
         }
     }
