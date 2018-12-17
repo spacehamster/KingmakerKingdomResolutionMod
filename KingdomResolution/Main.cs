@@ -300,9 +300,70 @@ namespace KingdomResolution
             result.Add(action.GetCaption());
             return result;
         }
-        /*
-         * Note: answer.NextCue can have actions associated with it, should those be shown?
-         */ 
+        static List<Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>> CollateAnswerData(BlueprintAnswer answer)
+        {
+            var cueResults = new List<Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>>();
+            var toCheck = new Queue<Tuple<BlueprintCueBase, int>>();
+            if (answer.NextCue.Cues.Count > 0)
+            {
+                toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(answer.NextCue.Cues[0], 1));
+            }
+            cueResults.Add(new Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>(
+                answer.ParentAsset as BlueprintCueBase,
+                0,
+                answer.OnSelect.Actions,
+                answer.AlignmentShift
+                ));
+            while (toCheck.Count > 0)
+            {
+                var item = toCheck.Dequeue();
+                var cueBase = item.Item1;
+                int currentDepth = item.Item2;
+                if (currentDepth > 10) break;
+                if (cueBase is BlueprintCue cue)
+                {
+                    cueResults.Add(new Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>(
+                        cue, 
+                        currentDepth,
+                        cue.OnShow.Actions.Concat(cue.OnStop.Actions).ToArray(),
+                        cue.AlignmentShift
+                        ));
+                    if (cue.Answers.Count > 0) break;
+                    if (cue.Continue.Cues.Count > 0)
+                    {
+                        toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(cue.Continue.Cues[0], currentDepth + 1));
+                    }
+                }
+                else if (cueBase is BlueprintBookPage page)
+                {
+                    cueResults.Add(new Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>(
+                        page,
+                        currentDepth,
+                        page.OnShow.Actions,
+                        null
+                        ));
+                    if (page.Answers.Count > 0) break;
+                    if (page.Cues.Count > 0)
+                    {
+                        foreach (var c in page.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                    }
+                }
+                else if (cueBase is BlueprintCheck check)
+                {
+                    toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(check.Success, currentDepth + 1));
+                    toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(check.Fail, currentDepth + 1));
+                }
+                else if (cueBase is BlueprintCueSequence sequence)
+                {
+                    foreach (var c in sequence.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return cueResults;
+        }
         [HarmonyPatch(typeof(UIConsts), "GetAnswerString")]
         static class UIConsts_GetAnswerString_Patch
         {
@@ -310,9 +371,22 @@ namespace KingdomResolution
             {
                 try
                 {
-                    if (!settings.previewDialogResults) return;                    if (answer.OnSelect.HasActions)
+                    if (!settings.previewDialogResults) return;
+                    var answerData = CollateAnswerData(answer);
+                    foreach(var data in answerData)
                     {
-                        __result += " \n<size=75%>[" + answer.OnSelect.Actions.Join((action) => FormatAction(action).Join()) + "]</size>";
+                        var cue = data.Item1;
+                        var depth = data.Item2;
+                        var actions = data.Item3;
+                        var alignment = data.Item4;
+                        if (actions.Length > 0)
+                        {
+                            __result += $" \n<size=75%>[{depth}: {actions.Join((action) => FormatAction(action).Join())}]</size>";
+                        }
+                        if(alignment != null && alignment.Value > 0)
+                        {
+                            __result += $" \n<size=75%>[{depth}: AlignmentShift {answer.AlignmentShift.Direction} by {answer.AlignmentShift.Value} - {answer.AlignmentShift.Description}]";
+                        }
                     }
                 } catch(Exception ex)
                 {
