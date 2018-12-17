@@ -20,6 +20,7 @@ namespace KingdomResolution
         public bool alwaysBaronProcurement = false;
         public bool previewEventResults = false;
         public bool previewDialogResults = false;
+        public bool previewAlignmentRestrictedDialog = false;
         public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);

@@ -13,11 +13,18 @@ using Kingmaker.UI.Kingdom;
 using Kingmaker.UnitLogic.Alignments;
 using Kingmaker.Enums;
 using Kingmaker.Designers.EventConditionActionSystem.Actions;
-using Kingmaker.Controllers.Dialog;
 using Kingmaker.DialogSystem.Blueprints;
 using System.Collections.Generic;
 using Kingmaker.Utility;
 using Kingmaker.ElementsSystem;
+using Kingmaker;
+using Kingmaker.Blueprints.Root.Strings;
+using Kingmaker.UI.SettingsUI;
+using Kingmaker.DialogSystem;
+using Kingmaker.UI.Common;
+using Kingmaker.Blueprints.Root;
+using Kingmaker.UI.Tooltip;
+using Kingmaker.UI.Dialog;
 
 namespace KingdomResolution
 {
@@ -84,6 +91,7 @@ namespace KingdomResolution
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
+                settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
                 ChooseKingdomUnreset();
             }
             catch (Exception ex)
@@ -297,13 +305,16 @@ namespace KingdomResolution
                 return ResolveConditional(action as Conditional);
             }
             var result = new List<string>();
-            result.Add(action.GetCaption());
+            var caption = action.GetCaption();
+            caption = caption == "" || caption == null ? action.GetType().Name : caption;
+            result.Add(caption);
             return result;
         }
-        static List<Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>> CollateAnswerData(BlueprintAnswer answer)
+        static List<Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>> CollateAnswerData(BlueprintAnswer answer, out bool isRecursive)
         {
             var cueResults = new List<Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>>();
             var toCheck = new Queue<Tuple<BlueprintCueBase, int>>();
+            isRecursive = false;
             if (answer.NextCue.Cues.Count > 0)
             {
                 toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(answer.NextCue.Cues[0], 1));
@@ -319,7 +330,7 @@ namespace KingdomResolution
                 var item = toCheck.Dequeue();
                 var cueBase = item.Item1;
                 int currentDepth = item.Item2;
-                if (currentDepth > 10) break;
+                if (currentDepth > 20) break;
                 if (cueBase is BlueprintCue cue)
                 {
                     cueResults.Add(new Tuple<BlueprintCueBase, int, GameAction[], AlignmentShift>(
@@ -328,7 +339,11 @@ namespace KingdomResolution
                         cue.OnShow.Actions.Concat(cue.OnStop.Actions).ToArray(),
                         cue.AlignmentShift
                         ));
-                    if (cue.Answers.Count > 0) break;
+                    if (cue.Answers.Count > 0)
+                    {
+                        if (cue.Answers[0] == answer.ParentAsset) isRecursive = true;
+                        break;
+                    }
                     if (cue.Continue.Cues.Count > 0)
                     {
                         toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(cue.Continue.Cues[0], currentDepth + 1));
@@ -342,7 +357,11 @@ namespace KingdomResolution
                         page.OnShow.Actions,
                         null
                         ));
-                    if (page.Answers.Count > 0) break;
+                    if (page.Answers.Count > 0)
+                    {
+                        if (page.Answers[0] == answer.ParentAsset) isRecursive = true;
+                        break;
+                    }
                     if (page.Cues.Count > 0)
                     {
                         foreach (var c in page.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
@@ -356,6 +375,19 @@ namespace KingdomResolution
                 else if (cueBase is BlueprintCueSequence sequence)
                 {
                     foreach (var c in sequence.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                    if(sequence.Exit != null)
+                    {
+                        var exit = sequence.Exit;
+                        if (exit.Answers.Count > 0)
+                        {
+                            if (exit.Answers[0] == answer.ParentAsset) isRecursive = true;
+                            break;
+                        }
+                        if (exit.Continue.Cues.Count > 0)
+                        {
+                            toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(exit.Continue.Cues[0], currentDepth + 1));
+                        }
+                    }
                 }
                 else
                 {
@@ -364,16 +396,54 @@ namespace KingdomResolution
             }
             return cueResults;
         }
+        public static string GetFixedAnswerString(BlueprintAnswer answer, string bind, int index)
+        {
+            bool flag = Game.Instance.DialogController.Dialog.Type == DialogType.Book;
+            string checkFormat = (!flag) ? UIDialog.Instance.AnswerStringWithCheckFormat : UIDialog.Instance.AnswerStringWithCheckBeFormat;
+            string text = string.Empty;
+            if (SettingsRoot.Instance.ShowSkillcheksDC.CurrentValue)
+            {
+                text = answer.SkillChecks.Aggregate(string.Empty, (string current, CheckData skillCheck) => current + string.Format(checkFormat, UIUtility.PackKeys(new object[]
+                {
+                    TooltipType.SkillcheckDC,
+                    skillCheck.Type
+                }), LocalizedTexts.Instance.Stats.GetText(skillCheck.Type), skillCheck.DC));
+            }
+            if (SettingsRoot.Instance.ShowAliggnmentRequirements.CurrentValue && answer.AlignmentRequirement != AlignmentComponent.None)
+            {
+                text = string.Format(UIDialog.Instance.AlignmentRequirementFormat, UIUtility.GetAlignmentRequirementText(answer.AlignmentRequirement)) + text;
+            }
+            if (answer.HasShowCheck)
+            {
+                text = string.Format(UIDialog.Instance.AnswerShowCheckFormat, LocalizedTexts.Instance.Stats.GetText(answer.ShowCheck.Type), text);
+            }
+            if (SettingsRoot.Instance.ShowAlignmentShiftsInAnswer.CurrentValue && answer.AlignmentRequirement == AlignmentComponent.None && answer.AlignmentShift.Value > 0 && SettingsRoot.Instance.ShowAlignmentShiftsInAnswer.CurrentValue)
+            {
+                text = string.Format(UIDialog.Instance.AligmentShiftedFormat, UIUtility.GetAlignmentShiftDirectionText(answer.AlignmentShift.Direction)) + text;
+            }
+            string stringByBinding = UIKeyboardTexts.Instance.GetStringByBinding(Game.Instance.Keyboard.GetBindingByName(bind));
+            return string.Format(UIDialog.Instance.AnswerDialogueFormat, 
+                (!stringByBinding.Empty()) ? stringByBinding : index.ToString(), 
+                text + ((!text.Empty<char>()) ? " " : string.Empty) + answer.DisplayText);
+        }
         [HarmonyPatch(typeof(UIConsts), "GetAnswerString")]
         static class UIConsts_GetAnswerString_Patch
         {
-            static void Postfix(ref string __result, BlueprintAnswer answer)
+            static void Postfix(ref string __result, BlueprintAnswer answer, string bind, int index)
             {
                 try
                 {
+                    if (settings.previewAlignmentRestrictedDialog && !answer.IsAlignmentRequirementSatisfied)
+                    {
+                        __result = GetFixedAnswerString(answer, bind, index);
+                    }
                     if (!settings.previewDialogResults) return;
-                    var answerData = CollateAnswerData(answer);
-                    foreach(var data in answerData)
+                    var answerData = CollateAnswerData(answer, out bool isRecursive);
+                    if (isRecursive)
+                    {
+                        __result += $" \n<size=75%>[Repeats]</size>";
+                    }
+                    foreach (var data in answerData)
                     {
                         var cue = data.Item1;
                         var depth = data.Item2;
@@ -381,11 +451,17 @@ namespace KingdomResolution
                         var alignment = data.Item4;
                         if (actions.Length > 0)
                         {
-                            __result += $" \n<size=75%>[{depth}: {actions.Join((action) => FormatAction(action).Join())}]</size>";
+                            var actionText = actions.Join((action) => FormatAction(action).Join());
+                            if (actionText == "") actionText = "EmptyAction";
+                            __result += $" \n<size=75%>[{depth}: {actionText}]</size>";
                         }
                         if(alignment != null && alignment.Value > 0)
                         {
-                            __result += $" \n<size=75%>[{depth}: AlignmentShift {answer.AlignmentShift.Direction} by {answer.AlignmentShift.Value} - {answer.AlignmentShift.Description}]";
+                            __result += $" \n<size=75%>[{depth}: AlignmentShift({alignment.Direction}, {alignment.Value}, {alignment.Description})]";
+                        }
+                        if (cue is BlueprintCheck check)
+                        {
+                            __result += $" \n<size=75%>[{depth}: {check.Type} check, DC {check.DC}, hidden {check.Hidden}]</size>";
                         }
                     }
                 } catch(Exception ex)
@@ -394,71 +470,35 @@ namespace KingdomResolution
                 }
             }
         }
-#if (DEBUG)
-        [HarmonyPatch(typeof(Kingmaker.UI.Dialog.DialogController), "HandleOnCueShow")]
-        static class DialogController_HandleOnCueShow_Patch
+        [HarmonyPatch(typeof(DialogCurrentPart), "Fill")]
+        static class DialogCurrentPart_Fill_Patch
         {
-            static void Postfix(DialogController __instance, CueShowData data)
+            static void Postfix(DialogCurrentPart __instance)
             {
                 try
                 {
-                    DebugLog("Showing Cue " + data?.Cue?.name ?? "NULL");
-                    DebugLog(data?.Cue?.DisplayText ?? "No Display Text");
-                    if (data?.Cue?.Answers?.Count != null && data?.Cue?.Answers?.Count > 0)
+                    var cue = Game.Instance.DialogController.CurrentCue;
+                    var actions = cue.OnShow.Actions.Concat(cue.OnStop.Actions).ToArray();
+                    var alignment = cue.AlignmentShift;
+                    var text = "";
+                    if (actions.Length > 0)
                     {
-                        DebugLog($"Answers {data?.Cue?.Answers?.Count}");
+                        var actionText = actions.Join((action) => FormatAction(action).Join());
+                        if (actionText == "") actionText = "EmptyAction";
+                        text += $" \n<size=75%>[ {actionText}]</size>";
                     }
-                    foreach (var answerBase in data.Cue.Answers)
+                    if (alignment != null && alignment.Value > 0)
                     {
-                        var answers = new List<BlueprintAnswer>();
-                        if(answerBase is BlueprintAnswersList)
-                        {
-                            var answersList = answerBase as BlueprintAnswersList;
-                            foreach(var answer in answersList.Answers)
-                            {
-                                if (answer is BlueprintAnswer) answers.Add(answer as BlueprintAnswer);
-                                else DebugLog($" Found {answer.GetType()} in AnswersList");
-                            }
-                        }
-                        if (answerBase is BlueprintAnswer)
-                        {
-                            answers.Add(answerBase as BlueprintAnswer);         
-                        }
-                        foreach(var answer in answers)
-                        {
-                            DebugLog($" {answer?.name} - {answerBase?.ParentAsset?.name}");
-                            DebugLog($" Text: {answer.Text}");
-                            DebugLog($" Cues: {answer.NextCue.Cues.Count}");
-                            foreach (var cue in answer.NextCue.Cues)
-                            {
-                                //DebugLog($"  Cue {cue.name}");
-                            }
-                        }
+                        text += $" \n<size=75%>[ AlignmentShift {alignment.Direction} by {alignment.Value} - {alignment.Description}]";
                     }
-                    DebugLog($"Continue {data.Cue.Continue?.Cues?.Count}");
-                    foreach (var cue in data.Cue.Continue.Cues)
-                    {
-                        DebugLog($" Continue: {cue.name} - {cue.GetType()}");
-                        DebugLog($" {cue.ToString()}");
-                    }
-                    DebugLog($"OnShow {data?.Cue?.OnShow?.Actions?.Length}");
-                    foreach (var action in data.Cue.OnShow.Actions)
-                    {
-                        DebugLog($" {action?.GetType()?.Name} - {action?.GetCaption()}");
-                    }
-                    DebugLog($"OnStop {data?.Cue?.OnShow?.Actions?.Length}");
-                    foreach (var action in data?.Cue?.OnShow?.Actions)
-                    {
-                        DebugLog($" {action?.GetType()?.Name} - {action?.GetCaption()}");
-                    }
-                    DebugLog("");
-                } catch(Exception ex)
+                    __instance.DialogPhrase.text += text;
+                }
+                catch (Exception ex)
                 {
-                    DebugLog(ex.ToString() + "\n" + ex.ToString());
+                    DebugError(ex);
                 }
             }
         }
-#endif
         [HarmonyPatch(typeof(KingdomUIEventWindow), "SetHeader")]
         static class KingdomUIEventWindow_SetHeader_Patch
         {
