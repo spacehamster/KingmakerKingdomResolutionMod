@@ -16,6 +16,7 @@ namespace KingdomResolution
         public bool skipPlayerTime = false;
         public bool overrideIgnoreEvents = false;
         public bool easyEvents = false;
+        public bool stopKingdomTimeline = false;
         public bool alwaysManageKingdom = false;
         public bool alwaysBaronProcurement = false;
         public bool previewEventResults = false;

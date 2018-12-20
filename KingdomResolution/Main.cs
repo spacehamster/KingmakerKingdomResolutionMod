@@ -42,8 +42,11 @@ namespace KingdomResolution
             if (logger != null) logger.Log(ex.ToString() + "\n" + ex.StackTrace);
         }
         public static bool enabled;
-        static Settings settings;
+        public static Settings settings;
         static string modId;
+        static bool ShowTimelineInfo;
+        static bool ShowEventInfo;
+        static bool ShowTaskInfo;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
@@ -73,6 +76,9 @@ namespace KingdomResolution
         {
             settings.Save(modEntry);
         }
+        static bool showTimeline = false;
+        static bool showEvents = false;
+        static bool showTasks = false;
         static void OnGUI(UnityModManager.ModEntry modEntry)
         {
             if (!enabled) return;
@@ -89,10 +95,51 @@ namespace KingdomResolution
                 settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only) ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
+                settings.stopKingdomTimeline = GUILayout.Toggle(settings.stopKingdomTimeline, "Stop KingdomTimeline  ", GUILayout.ExpandWidth(false));
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
                 ChooseKingdomUnreset();
+                GUILayout.BeginHorizontal();
+                if(!showTimeline && GUILayout.Button("Show Timeline"))
+                {
+                    showTimeline = true;
+                    showTasks = showEvents = false;
+                }
+                if (showTimeline && GUILayout.Button("Hide Timeline"))
+                {
+                    showTimeline = false;
+                }
+                if (!showEvents && GUILayout.Button("Show Events")){
+                    showEvents = true;
+                    showTimeline = showTasks = false;
+                }
+                if (showEvents && GUILayout.Button("Hide Events"))
+                {
+                    showEvents = false;
+                }
+                if (!showTasks && GUILayout.Button("Show Tasks"))
+                {
+                    showTasks = true;
+                    showTimeline = showEvents = false;
+                }
+                if (showTasks && GUILayout.Button("Hide Tasks"))
+                {
+                    showTasks = false;
+                }
+                GUILayout.EndHorizontal();
+                if (showTimeline)
+                {
+                    KingdomTimeline.PreviewTimeline();
+                }
+                if (showEvents)
+                {
+                    KingdomTimeline.ShowActiveEvents();
+                }
+                if (showTasks)
+                {
+                    KingdomTimeline.ShowActiveTasks();
+                }
             }
             catch (Exception ex)
             {
@@ -257,7 +304,7 @@ namespace KingdomResolution
                 }
             }
         }
-        [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
+        [HarmonyPatch(typeof(Kingmaker.Kingdom.KingdomTimelineManager), "FailIgnoredEvents")]
         static class KingdomTimelineManager_FailIgnoredEvents_Patch
         {
             static bool Prefix()
@@ -298,7 +345,7 @@ namespace KingdomResolution
             }
             return result;
         }
-        static List<string> FormatAction(GameAction action)
+        public static List<string> FormatAction(GameAction action)
         {
             if(action is Conditional)
             {
