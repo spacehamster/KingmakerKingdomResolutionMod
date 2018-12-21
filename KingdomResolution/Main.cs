@@ -335,10 +335,10 @@ namespace KingdomResolution
             text += "\n";
             return text;
         }
-        static List<String> ResolveConditional(Conditional conditional)
+        static List<string> ResolveConditional(Conditional conditional)
         {
             var actionList = conditional.ConditionsChecker.Check(null) ? conditional.IfTrue : conditional.IfFalse;
-            var result = new List<String>();
+            var result = new List<string>();
             foreach(var action in actionList.Actions)
             {
                 result.AddRange(FormatAction(action));
@@ -488,29 +488,33 @@ namespace KingdomResolution
                     var answerData = CollateAnswerData(answer, out bool isRecursive);
                     if (isRecursive)
                     {
-                        __result += $" \n<size=75%>[Repeats]</size>";
+                        __result += $" <size=75%>[Repeats]</size>";
                     }
+                    var results = new List<string>();
                     foreach (var data in answerData)
                     {
                         var cue = data.Item1;
                         var depth = data.Item2;
                         var actions = data.Item3;
                         var alignment = data.Item4;
+                        var line = new List<string>();
                         if (actions.Length > 0)
                         {
-                            var actionText = actions.Join((action) => FormatAction(action).Join());
-                            if (actionText == "") actionText = "EmptyAction";
-                            __result += $" \n<size=75%>[{depth}: {actionText}]</size>";
+                            line.AddRange(actions.
+                                SelectMany(action => FormatAction(action)
+                                .Select(actionText => actionText == "" ? "EmptyAction" : actionText)));
                         }
                         if(alignment != null && alignment.Value > 0)
                         {
-                            __result += $" \n<size=75%>[{depth}: AlignmentShift({alignment.Direction}, {alignment.Value}, {alignment.Description})]";
+                            line.Add($"AlignmentShift({alignment.Direction}, {alignment.Value}, {alignment.Description})");
                         }
                         if (cue is BlueprintCheck check)
                         {
-                            __result += $" \n<size=75%>[{depth}: {check.Type} check, DC {check.DC}, hidden {check.Hidden}]</size>";
+                            line.Add($"Check({check.Type}, DC {check.DC}, hidden {check.Hidden})");
                         }
+                        if(line.Count > 0) results.Add($"{depth}: {line.Join()}");
                     }
+                    if(results.Count > 0) __result += $" \n<size=75%>[{results.Join()}]</size>";
                 } catch(Exception ex)
                 {
                     DebugError(ex);
@@ -530,13 +534,16 @@ namespace KingdomResolution
                     var text = "";
                     if (actions.Length > 0)
                     {
-                        var actionText = actions.Join((action) => FormatAction(action).Join());
-                        if (actionText == "") actionText = "EmptyAction";
-                        text += $" \n<size=75%>[ {actionText}]</size>";
+                        var result = actions.
+                                SelectMany(action => FormatAction(action))
+                                .Select(actionText => actionText == "" ? "EmptyAction" : actionText)
+                                .Join();
+                        if (result == "") result = "EmptyAction";
+                        text += $" \n<size=75%>[{result}]</size>";
                     }
                     if (alignment != null && alignment.Value > 0)
                     {
-                        text += $" \n<size=75%>[ AlignmentShift {alignment.Direction} by {alignment.Value} - {alignment.Description}]";
+                        text += $" \n<size=75%>[AlignmentShift {alignment.Direction} by {alignment.Value} - {alignment.Description}]";
                     }
                     __instance.DialogPhrase.text += text;
                 }
