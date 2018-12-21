@@ -92,6 +92,14 @@ namespace KingdomResolution
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
+                if (SettingsRoot.Instance.KingdomManagementMode.CurrentValue == KingdomDifficulty.Auto)
+                {
+                    if (GUILayout.Button("Disable Auto Kingdom Management Mode"))
+                    {
+                        SettingsRoot.Instance.KingdomManagementMode.CurrentValue = KingdomDifficulty.Easy;
+                        SettingsRoot.Instance.KingdomDifficulty.CurrentValue = KingdomDifficulty.Easy;
+                    }
+                }
                 ChooseKingdomUnreset();
             }
             catch (Exception ex)
