@@ -77,6 +77,7 @@ namespace KingdomResolution
                 return true;
             }
         }
+        static BlueprintKingdomEventTimeline.Entry openEntry;
         public static void PreviewTimeline()
         {
             var timeline = Game.Instance.BlueprintRoot.Kingdom.Timeline;
@@ -84,8 +85,62 @@ namespace KingdomResolution
             foreach (var entry in timeline.Entries.Entries)
             {
                 if (entry.Day < KingdomState.Instance.CurrentDay) continue;
-                GUILayout.Label($"In {entry.Day - KingdomState.Instance.CurrentDay} days, {entry.Event.name}: {entry.Event.LocalizedName} - {entry.Event.LocalizedDescription}");
+                GUILayout.BeginHorizontal();
+                var timeString = entry.Event.ResolutionTime;
+                GUILayout.Label($"In {entry.Day - KingdomState.Instance.CurrentDay} days, {entry.Event.name}: {entry.Event.LocalizedName}", "box");
+                if (openEntry == entry && GUILayout.Button("Less"))
+                {
+                    openEntry = null;
+                }
+                if (openEntry != entry && GUILayout.Button("More"))
+                {
+                    openEntry = entry;
+                }
+                GUILayout.EndHorizontal();
+                if (openEntry == entry)
+                {
+                    ShowBlueprintEvent(entry.Event);
+                }
+
             }
+        }
+        public static void ShowBlueprintEvent(BlueprintKingdomEventBase blueprint)
+        {
+            GUILayout.Label($"Description: {blueprint.LocalizedDescription}");
+            GUILayout.Label($"ResolutionTime: {blueprint.ResolutionTime} days");
+            GUILayout.Label($"ResolveAutomatically: {blueprint.ResolveAutomatically}");
+            GUILayout.Label($"NeedToVistTheThroneRoom: {blueprint.NeedToVisitTheThroneRoom}");
+            if (blueprint is BlueprintKingdomEvent bke)
+            {
+                var actionText = bke.OnTrigger.Actions.Join((action) => Main.FormatAction(action).Join());
+                GUILayout.Label($"OnTrigger: {actionText}");
+            }
+            if (blueprint is BlueprintKingdomProject bkp)
+            {
+                GUILayout.Label($"ProjectType: {bkp.ProjectType}");
+            }
+            var actions = new HashSet<GameAction>();
+            foreach (var solution in blueprint.Solutions.Entries)
+            {
+                foreach (var resolution in solution.Resolutions)
+                {
+                    foreach (var action in resolution.Actions.Actions)
+                    {
+                        actions.Add(action);
+                    }
+                }
+            }
+            var possibleActionText = actions.Join((action) => Main.FormatAction(action).Join());
+            GUILayout.Label($"PossibleResolutions: {possibleActionText}");
+        }
+        public static void ShowEvent(KingdomEvent activeEvent)
+        {
+            var task = activeEvent.AssociatedTask;
+            if (task != null) GUILayout.Label($"Task {task.Name}");
+            GUILayout.Label($"IsRecurrent {activeEvent.IsRecurrent}");
+            ShowBlueprintEvent(activeEvent.EventBlueprint);
+
+
         }
         static KingdomEvent openEvent = null;
         public static void ShowActiveEvents()
@@ -110,28 +165,7 @@ namespace KingdomResolution
                 GUILayout.EndHorizontal();
                 if (activeEvent == openEvent)
                 {
-                    if(activeEvent.EventBlueprint is BlueprintKingdomEvent bke)
-                    {
-                        var actionText = bke.OnTrigger.Actions.Join((action) => Main.FormatAction(action).Join());
-                        GUILayout.Label($"OnTrigger: {actionText}");
-                    }
-                    if (activeEvent.EventBlueprint is BlueprintKingdomProject bkp)
-                    {
-                        GUILayout.Label($"ProjectType: {bkp.ProjectType}");
-                    }
-                    var actions = new HashSet<GameAction>();
-                    foreach(var solution in activeEvent.EventBlueprint.Solutions.Entries)
-                    {
-                        foreach(var resolution in solution.Resolutions)
-                        {
-                            foreach(var action in resolution.Actions.Actions)
-                            {
-                                actions.Add(action);
-                            }
-                        }
-                    }
-                    var possibleActionText = actions.Join((action) => Main.FormatAction(action).Join());
-                    GUILayout.Label($"PossibleResolutions: {possibleActionText}");
+                    ShowEvent(activeEvent);
                 }
             }
         }
@@ -159,12 +193,13 @@ namespace KingdomResolution
                 GUILayout.EndHorizontal();
                 if (activeTask == openTask)
                 {
-                    GUILayout.BeginHorizontal($"Name: {activeTask.Name}");
-                    GUILayout.BeginHorizontal($"Description: {activeTask.Description}");
+                    GUILayout.Label($"Name: {activeTask.Name}");
+                    GUILayout.Label($"Description: {activeTask.Description}");
                     if(activeTask.Region != null) GUILayout.BeginHorizontal($"Event: {activeTask.Region.Blueprint.LocalizedName}");
                     if (activeTask is KingdomTaskEvent kte)
                     {
-                        GUILayout.BeginHorizontal($"Event: {kte.Event.FullName}");
+                        GUILayout.Label($"Event: {kte.Event.FullName}");
+                        ShowEvent(kte.Event);
                     }
                 }
             }
