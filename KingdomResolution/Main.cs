@@ -106,13 +106,6 @@ namespace KingdomResolution
 
                 //GUILayout.BeginHorizontal();
                 settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
-                if (settings.pauseKingdomTimeline)
-                {
-                    settings.enableKingomManagement = GUILayout.Toggle(settings.enableKingomManagement, "Enable Kingdom Management while paused  ", GUILayout.ExpandWidth(false));
-                    settings.enableRandomEvents = GUILayout.Toggle(settings.enableRandomEvents, "Enable Random Events while Paused  ", GUILayout.ExpandWidth(false));
-                    settings.enablePausedProjects = GUILayout.Toggle(settings.enablePausedProjects, "Enable Projects while Paused  ", GUILayout.ExpandWidth(false));
-                    settings.enableMabyEvents = GUILayout.Toggle(settings.enableMabyEvents, "Enable Maby Event Updates while Paused  ", GUILayout.ExpandWidth(false));
-                }
                 //GUILayout.EndHorizontal();
 
                 ChooseKingdomUnreset();

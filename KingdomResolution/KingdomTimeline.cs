@@ -27,65 +27,6 @@ namespace KingdomResolution
         {
             int delta = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay - KingdomState.Instance.StartDay;
             KingdomState.Instance.StartDay = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay;
-            if (delta < 1) return;
-            if (Main.settings.enableKingomManagement)
-            {
-                foreach (KingdomBuff kingdomBuff in KingdomState.Instance.ActiveBuffs.Enumerable)
-                {
-                    if (kingdomBuff.EndsOnDay > 0 && KingdomState.Instance.CurrentDay >= kingdomBuff.EndsOnDay)
-                    {
-                        kingdomBuff.EndsOnDay = (int)Math.Max(1, kingdomBuff.EndsOnDay - delta);
-                    }
-                }
-                foreach (RegionState regionState in KingdomState.Instance.Regions)
-                {
-                    SettlementState settlement = regionState.Settlement;
-                    if (settlement != null)
-                    {
-                        foreach(var building in settlement.Buildings)
-                        {
-                            if (building.IsFinished) continue;
-                            building.FinishedOn = (int)Math.Max(1, building.FinishedOn - delta);
-                        }
-                    }
-                }
-                foreach (RegionState regionState2 in KingdomState.Instance.Regions)
-                {
-                    foreach (Artisan artisan in regionState2.Artisans)
-                    {
-
-                    }
-                }
-                if (Main.settings.enablePausedProjects)
-                {
-                    foreach (KingdomTask task in KingdomState.Instance.ActiveTasks)
-                    {
-                        var kte = task as KingdomTaskEvent;
-                        if (kte == null) continue;
-                        if (!kte.IsInProgress) continue;
-                        if (kte.Event.EventBlueprint is BlueprintKingdomProject bkp)
-                        {
-                            //Traverse.Create(task).Property("StartedOn").SetValue(task.StartedOn - delta);
-                            typeof(KingdomTask).GetProperty("StartedOn").SetValue(task, task.StartedOn - delta, null);
-                            Traverse.Create(kte.Event).Field("m_StartedOn").SetValue(kte.Event.StartedOn - delta);
-                        }
-                    }
-                }
-                for (int i = 0; i < delta; i++)
-                {
-                    if ((Game.Instance.TimeController.GameTime.TotalDays - delta) % 7 == 0)
-                    {
-                        KingdomState.Instance.BPPerTurnTotal = Rulebook.Trigger<RuleCalculateBPGain>(new RuleCalculateBPGain()).BPToAdd;
-                        KingdomState.Instance.BP += KingdomState.Instance.BPPerTurnTotal;
-                        KingdomState.Instance.CurrentTurn++;
-                        EventBus.RaiseEvent<IKingdomLogHandler>(delegate (IKingdomLogHandler h)
-                        {
-                            h.OnBPGained(KingdomState.Instance.BPPerTurnTotal);
-                        });
-                    }
-                }
-            }
-
         }
         /*
          * CurrentDay is used in a large amound of places, and is updated when UpdateTimeline is ran
@@ -120,11 +61,6 @@ namespace KingdomResolution
                     if (!Main.settings.pauseKingdomTimeline) return true;
                     int delta = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay - KingdomState.Instance.StartDay;
                     FixTimeline();
-                    if (Main.settings.enableMabyEvents && delta > 0)
-                    {
-                        KingdomState.Instance.TimelineManager.UpdateTimeline();
-                        return false;
-                    }
                 } catch(Exception ex)
                 {
                     Main.DebugError(ex);
@@ -155,7 +91,6 @@ namespace KingdomResolution
             {
                 if (!Main.enabled) return true;
                 if (!Main.settings.pauseKingdomTimeline) return true;
-                if (Main.settings.enableRandomEvents) return true;
                 var date = KingdomState.Instance.ToDate(KingdomState.Instance.CurrentDay);
                 if (date.Day == 1)
                 {
