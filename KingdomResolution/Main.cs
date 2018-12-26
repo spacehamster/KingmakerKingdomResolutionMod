@@ -44,21 +44,18 @@ namespace KingdomResolution
         public static bool enabled;
         public static Settings settings;
         static string modId;
-        static bool ShowTimelineInfo;
-        static bool ShowEventInfo;
-        static bool ShowTaskInfo;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
             {
-            logger = modEntry.Logger;
-            modId = modEntry.Info.Id;
-            settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-            var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-            modEntry.OnToggle = OnToggle;
-            modEntry.OnGUI = OnGUI;
-            modEntry.OnSaveGUI = OnSaveGUI;
+                logger = modEntry.Logger;
+                modId = modEntry.Info.Id;
+                settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                modEntry.OnToggle = OnToggle;
+                modEntry.OnGUI = OnGUI;
+                modEntry.OnSaveGUI = OnSaveGUI;
             } catch(Exception ex)
             {
                 DebugError(ex);
@@ -95,11 +92,24 @@ namespace KingdomResolution
                 settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only) ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
-                settings.stopKingdomTimeline = GUILayout.Toggle(settings.stopKingdomTimeline, "Stop KingdomTimeline  ", GUILayout.ExpandWidth(false));
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
+
+                //GUILayout.BeginHorizontal();
+                settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
+                if (settings.pauseKingdomTimeline)
+                {
+                    settings.enableKingomManagement = GUILayout.Toggle(settings.enableKingomManagement, "Enable Kingdom Management while paused  ", GUILayout.ExpandWidth(false));
+                    settings.enableRandomEvents = GUILayout.Toggle(settings.enableRandomEvents, "Enable Random Events while Paused  ", GUILayout.ExpandWidth(false));
+                    settings.enablePausedProjects = GUILayout.Toggle(settings.enablePausedProjects, "Enable Projects while Paused  ", GUILayout.ExpandWidth(false));
+                    settings.enableMabyEvents = GUILayout.Toggle(settings.enableMabyEvents, "Enable Maby Event Updates while Paused  ", GUILayout.ExpandWidth(false));
+                }
+                //GUILayout.EndHorizontal();
+
                 ChooseKingdomUnreset();
+
+
                 GUILayout.BeginHorizontal();
                 if(!showTimeline && GUILayout.Button("Show Timeline"))
                 {
@@ -406,12 +416,16 @@ namespace KingdomResolution
                         ));
                     if (page.Answers.Count > 0)
                     {
-                        if (page.Answers[0] == answer.ParentAsset) isRecursive = true;
-                        break;
+                        if (page.Answers[0] == answer.ParentAsset)
+                        {
+                            isRecursive = true;
+                            break;
+                        }
+                        if (page.Answers[0] is BlueprintAnswersList) break;
                     }
                     if (page.Cues.Count > 0)
                     {
-                        foreach (var c in page.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                        foreach (var c in page.Cues) if(c.CanShow()) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
                     }
                 }
                 else if (cueBase is BlueprintCheck check)
@@ -421,7 +435,7 @@ namespace KingdomResolution
                 }
                 else if (cueBase is BlueprintCueSequence sequence)
                 {
-                    foreach (var c in sequence.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                    foreach (var c in sequence.Cues) if(c.CanShow()) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
                     if(sequence.Exit != null)
                     {
                         var exit = sequence.Exit;
