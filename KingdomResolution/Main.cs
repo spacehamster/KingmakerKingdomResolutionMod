@@ -42,20 +42,20 @@ namespace KingdomResolution
             if (logger != null) logger.Log(ex.ToString() + "\n" + ex.StackTrace);
         }
         public static bool enabled;
-        static Settings settings;
+        public static Settings settings;
         static string modId;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
             {
-            logger = modEntry.Logger;
-            modId = modEntry.Info.Id;
-            settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-            var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
-            modEntry.OnToggle = OnToggle;
-            modEntry.OnGUI = OnGUI;
-            modEntry.OnSaveGUI = OnSaveGUI;
+                logger = modEntry.Logger;
+                modId = modEntry.Info.Id;
+                settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                modEntry.OnToggle = OnToggle;
+                modEntry.OnGUI = OnGUI;
+                modEntry.OnSaveGUI = OnSaveGUI;
             } catch(Exception ex)
             {
                 DebugError(ex);
@@ -73,6 +73,9 @@ namespace KingdomResolution
         {
             settings.Save(modEntry);
         }
+        static bool showTimeline = false;
+        static bool showEvents = false;
+        static bool showTasks = false;
         static void OnGUI(UnityModManager.ModEntry modEntry)
         {
             if (!enabled) return;
@@ -100,7 +103,61 @@ namespace KingdomResolution
                         SettingsRoot.Instance.KingdomDifficulty.CurrentValue = KingdomDifficulty.Easy;
                     }
                 }
+
+                //GUILayout.BeginHorizontal();
+                settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
+                if (settings.pauseKingdomTimeline)
+                {
+                    settings.enableKingomManagement = GUILayout.Toggle(settings.enableKingomManagement, "Enable Kingdom Management while paused  ", GUILayout.ExpandWidth(false));
+                    settings.enableRandomEvents = GUILayout.Toggle(settings.enableRandomEvents, "Enable Random Events while Paused  ", GUILayout.ExpandWidth(false));
+                    settings.enablePausedProjects = GUILayout.Toggle(settings.enablePausedProjects, "Enable Projects while Paused  ", GUILayout.ExpandWidth(false));
+                    settings.enableMabyEvents = GUILayout.Toggle(settings.enableMabyEvents, "Enable Maby Event Updates while Paused  ", GUILayout.ExpandWidth(false));
+                }
+                //GUILayout.EndHorizontal();
+
                 ChooseKingdomUnreset();
+
+
+                GUILayout.BeginHorizontal();
+                if(!showTimeline && GUILayout.Button("Show Timeline"))
+                {
+                    showTimeline = true;
+                    showTasks = showEvents = false;
+                }
+                if (showTimeline && GUILayout.Button("Hide Timeline"))
+                {
+                    showTimeline = false;
+                }
+                if (!showEvents && GUILayout.Button("Show Events")){
+                    showEvents = true;
+                    showTimeline = showTasks = false;
+                }
+                if (showEvents && GUILayout.Button("Hide Events"))
+                {
+                    showEvents = false;
+                }
+                if (!showTasks && GUILayout.Button("Show Tasks"))
+                {
+                    showTasks = true;
+                    showTimeline = showEvents = false;
+                }
+                if (showTasks && GUILayout.Button("Hide Tasks"))
+                {
+                    showTasks = false;
+                }
+                GUILayout.EndHorizontal();
+                if (showTimeline)
+                {
+                    KingdomTimeline.PreviewTimeline();
+                }
+                if (showEvents)
+                {
+                    KingdomTimeline.ShowActiveEvents();
+                }
+                if (showTasks)
+                {
+                    KingdomTimeline.ShowActiveTasks();
+                }
             }
             catch (Exception ex)
             {
@@ -265,7 +322,7 @@ namespace KingdomResolution
                 }
             }
         }
-        [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
+        [HarmonyPatch(typeof(Kingmaker.Kingdom.KingdomTimelineManager), "FailIgnoredEvents")]
         static class KingdomTimelineManager_FailIgnoredEvents_Patch
         {
             static bool Prefix()
@@ -296,17 +353,17 @@ namespace KingdomResolution
             text += "\n";
             return text;
         }
-        static List<String> ResolveConditional(Conditional conditional)
+        static List<string> ResolveConditional(Conditional conditional)
         {
             var actionList = conditional.ConditionsChecker.Check(null) ? conditional.IfTrue : conditional.IfFalse;
-            var result = new List<String>();
+            var result = new List<string>();
             foreach(var action in actionList.Actions)
             {
                 result.AddRange(FormatAction(action));
             }
             return result;
         }
-        static List<string> FormatAction(GameAction action)
+        public static List<string> FormatAction(GameAction action)
         {
             if(action is Conditional)
             {
@@ -367,12 +424,16 @@ namespace KingdomResolution
                         ));
                     if (page.Answers.Count > 0)
                     {
-                        if (page.Answers[0] == answer.ParentAsset) isRecursive = true;
-                        break;
+                        if (page.Answers[0] == answer.ParentAsset)
+                        {
+                            isRecursive = true;
+                            break;
+                        }
+                        if (page.Answers[0] is BlueprintAnswersList) break;
                     }
                     if (page.Cues.Count > 0)
                     {
-                        foreach (var c in page.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                        foreach (var c in page.Cues) if(c.CanShow()) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
                     }
                 }
                 else if (cueBase is BlueprintCheck check)
@@ -382,7 +443,7 @@ namespace KingdomResolution
                 }
                 else if (cueBase is BlueprintCueSequence sequence)
                 {
-                    foreach (var c in sequence.Cues) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
+                    foreach (var c in sequence.Cues) if(c.CanShow()) toCheck.Enqueue(new Tuple<BlueprintCueBase, int>(c, currentDepth + 1));
                     if(sequence.Exit != null)
                     {
                         var exit = sequence.Exit;
@@ -449,29 +510,33 @@ namespace KingdomResolution
                     var answerData = CollateAnswerData(answer, out bool isRecursive);
                     if (isRecursive)
                     {
-                        __result += $" \n<size=75%>[Repeats]</size>";
+                        __result += $" <size=75%>[Repeats]</size>";
                     }
+                    var results = new List<string>();
                     foreach (var data in answerData)
                     {
                         var cue = data.Item1;
                         var depth = data.Item2;
                         var actions = data.Item3;
                         var alignment = data.Item4;
+                        var line = new List<string>();
                         if (actions.Length > 0)
                         {
-                            var actionText = actions.Join((action) => FormatAction(action).Join());
-                            if (actionText == "") actionText = "EmptyAction";
-                            __result += $" \n<size=75%>[{depth}: {actionText}]</size>";
+                            line.AddRange(actions.
+                                SelectMany(action => FormatAction(action)
+                                .Select(actionText => actionText == "" ? "EmptyAction" : actionText)));
                         }
                         if(alignment != null && alignment.Value > 0)
                         {
-                            __result += $" \n<size=75%>[{depth}: AlignmentShift({alignment.Direction}, {alignment.Value}, {alignment.Description})]";
+                            line.Add($"AlignmentShift({alignment.Direction}, {alignment.Value}, {alignment.Description})");
                         }
                         if (cue is BlueprintCheck check)
                         {
-                            __result += $" \n<size=75%>[{depth}: {check.Type} check, DC {check.DC}, hidden {check.Hidden}]</size>";
+                            line.Add($"Check({check.Type}, DC {check.DC}, hidden {check.Hidden})");
                         }
+                        if(line.Count > 0) results.Add($"{depth}: {line.Join()}");
                     }
+                    if(results.Count > 0) __result += $" \n<size=75%>[{results.Join()}]</size>";
                 } catch(Exception ex)
                 {
                     DebugError(ex);
@@ -491,13 +556,16 @@ namespace KingdomResolution
                     var text = "";
                     if (actions.Length > 0)
                     {
-                        var actionText = actions.Join((action) => FormatAction(action).Join());
-                        if (actionText == "") actionText = "EmptyAction";
-                        text += $" \n<size=75%>[ {actionText}]</size>";
+                        var result = actions.
+                                SelectMany(action => FormatAction(action))
+                                .Select(actionText => actionText == "" ? "EmptyAction" : actionText)
+                                .Join();
+                        if (result == "") result = "EmptyAction";
+                        text += $" \n<size=75%>[{result}]</size>";
                     }
                     if (alignment != null && alignment.Value > 0)
                     {
-                        text += $" \n<size=75%>[ AlignmentShift {alignment.Direction} by {alignment.Value} - {alignment.Description}]";
+                        text += $" \n<size=75%>[AlignmentShift {alignment.Direction} by {alignment.Value} - {alignment.Description}]";
                     }
                     __instance.DialogPhrase.text += text;
                 }
