@@ -495,6 +495,7 @@ namespace KingdomResolution
             {
                 try
                 {
+                    if (!enabled) return;
                     if (settings.previewAlignmentRestrictedDialog && !answer.IsAlignmentRequirementSatisfied)
                     {
                         __result = GetFixedAnswerString(answer, bind, index);
@@ -543,6 +544,8 @@ namespace KingdomResolution
             {
                 try
                 {
+                    if (!enabled) return;
+                    if (!settings.previewDialogResults) return;
                     var cue = Game.Instance.DialogController.CurrentCue;
                     var actions = cue.OnShow.Actions.Concat(cue.OnStop.Actions).ToArray();
                     var alignment = cue.AlignmentShift;
