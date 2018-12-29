@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Kingmaker.UI.SettingsUI;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,6 +23,7 @@ namespace KingdomResolution
         public bool previewEventResults = false;
         public bool previewDialogResults = false;
         public bool previewAlignmentRestrictedDialog = false;
+        public BindingKeysData kingdomStashHotkey;
         public override void Save(UnityModManager.ModEntry modEntry)
         {
             Save(this, modEntry);

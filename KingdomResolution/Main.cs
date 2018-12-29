@@ -28,7 +28,6 @@ using Kingmaker.UI.Dialog;
 
 namespace KingdomResolution
 {
-
     public class Main
     {
         public static UnityModManagerNet.UnityModManager.ModEntry.ModLogger logger;
@@ -56,6 +55,7 @@ namespace KingdomResolution
                 modEntry.OnToggle = OnToggle;
                 modEntry.OnGUI = OnGUI;
                 modEntry.OnSaveGUI = OnSaveGUI;
+                KingdomStash.Init();
             } catch(Exception ex)
             {
                 DebugError(ex);
@@ -81,7 +81,7 @@ namespace KingdomResolution
             if (!enabled) return;
             try
             {
-                Func<float, string> percentFormatter = (value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
+                string percentFormatter(float value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
                 ChooseFactor("Event Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Project Time Factor ", settings.projectTimeFactor, 1, (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Ruler Managed Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
@@ -95,6 +95,9 @@ namespace KingdomResolution
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
+                //GUILayout.BeginHorizontal();
+                settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
+                //GUILayout.EndHorizontal();
                 if (SettingsRoot.Instance.KingdomManagementMode.CurrentValue == KingdomDifficulty.Auto)
                 {
                     if (GUILayout.Button("Disable Auto Kingdom Management Mode"))
@@ -103,11 +106,7 @@ namespace KingdomResolution
                         SettingsRoot.Instance.KingdomDifficulty.CurrentValue = KingdomDifficulty.Easy;
                     }
                 }
-
-                //GUILayout.BeginHorizontal();
-                settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
-                //GUILayout.EndHorizontal();
-
+                KingdomStash.OnGUI();
                 ChooseKingdomUnreset();
 
 
@@ -599,7 +598,7 @@ namespace KingdomResolution
                     solutionText.text += "<size=75%>";
 
                     var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
-                    Func<EventResult, bool> isValid = (result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
+                    bool isValid(EventResult result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
                     var validResults = resolutions.Where(isValid);
                     solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + " - Alignment " + alignmentMask + "\n";
                     foreach (var eventResult in validResults)
