@@ -23,6 +23,7 @@ namespace KingdomResolution
         public bool previewEventResults = false;
         public bool previewDialogResults = false;
         public bool previewAlignmentRestrictedDialog = false;
+        public bool previewRandomEncounters = false;
         public BindingKeysData kingdomStashHotkey;
         public override void Save(UnityModManager.ModEntry modEntry)
         {

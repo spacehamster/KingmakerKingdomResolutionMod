@@ -25,6 +25,8 @@ using Kingmaker.UI.Common;
 using Kingmaker.Blueprints.Root;
 using Kingmaker.UI.Tooltip;
 using Kingmaker.UI.Dialog;
+using Kingmaker.UI.GlobalMap;
+using Kingmaker.Controllers.GlobalMap;
 
 namespace KingdomResolution
 {
@@ -95,6 +97,7 @@ namespace KingdomResolution
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
+                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Alignment Restricted Dialog ", GUILayout.ExpandWidth(false));
                 //GUILayout.BeginHorizontal();
                 settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
                 //GUILayout.EndHorizontal();
@@ -645,6 +648,26 @@ namespace KingdomResolution
                     solutionText.text += "</size>";
                 }
                 catch (Exception ex)
+                {
+                    DebugError(ex);
+                }
+            }
+        }
+        [HarmonyPatch(typeof(GlobalMapRandomEncounterController), "OnRandomEncounterStarted")]
+        static class GlobalMapRandomEncounterController_OnRandomEncounterStarted_Patch
+        {
+            static void Postfix(GlobalMapRandomEncounterController __instance, ref RandomEncounterData encounter)
+            {
+                try
+                {
+                    if (!enabled) return;
+                    if (settings.previewRandomEncounters)
+                    {
+                        var blueprint = encounter.Blueprint;
+                        var text = $"\n<size=70%>Name: {blueprint.name}\nType: {blueprint.Type}\nCR: {encounter.CR}</size>";
+                        Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>().text += text;
+                    }
+                } catch(Exception ex)
                 {
                     DebugError(ex);
                 }
