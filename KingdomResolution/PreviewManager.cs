@@ -1,5 +1,6 @@
 ﻿using Harmony12;
 using Kingmaker;
+using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Root;
 using Kingmaker.Blueprints.Root.Strings;
 using Kingmaker.Controllers.GlobalMap;
@@ -9,6 +10,7 @@ using Kingmaker.ElementsSystem;
 using Kingmaker.Enums;
 using Kingmaker.Kingdom;
 using Kingmaker.Kingdom.Blueprints;
+using Kingmaker.Kingdom.Tasks;
 using Kingmaker.Kingdom.UI;
 using Kingmaker.UI.Common;
 using Kingmaker.UI.Dialog;
@@ -27,17 +29,64 @@ namespace KingdomResolution
 {
     class PreviewManager
     {
-        static string FormatResult(EventResult eventResult, EventResult[] eventResults, BlueprintKingdomEvent eventBlueprint = null)
+        public static KingdomStats.Changes CalculateEventResult(KingdomEvent kingdomEvent, EventResult.MarginType margin, AlignmentMaskType alignment, LeaderType leaderType)
+        {
+            var checkMargin = EventResult.MarginToInt(margin);
+            var result = new KingdomStats.Changes();
+            var m_TriggerChange = Traverse.Create(kingdomEvent).Field("m_TriggerChange").GetValue<KingdomStats.Changes>();
+            var m_SuccessCount = Traverse.Create(kingdomEvent).Field("m_SuccessCount").GetValue<int>();
+            BlueprintKingdomEvent blueprintKingdomEvent = kingdomEvent.EventBlueprint as BlueprintKingdomEvent;
+            if (blueprintKingdomEvent && blueprintKingdomEvent.UnapplyTriggerOnResolve && m_TriggerChange != null)
+            {
+                result.Accumulate(m_TriggerChange.Opposite(), 1);
+            }
+            var resolutions = kingdomEvent.EventBlueprint.Solutions.GetResolutions(leaderType);
+            if (resolutions == null) resolutions = Array.Empty<EventResult>();
+            foreach (var eventResult in resolutions)
+            {
+                var validConditions = eventResult.Condition == null || eventResult.Condition.Check(kingdomEvent.EventBlueprint);
+                if (eventResult.MatchesMargin(checkMargin) && (alignment & eventResult.LeaderAlignment) != AlignmentMaskType.None && validConditions)
+                {
+                    result.Accumulate(eventResult.StatChanges, 1);
+                    m_SuccessCount += eventResult.SuccessCount;
+                }
+            }
+            if(checkMargin >= 0 && blueprintKingdomEvent != null)
+            {
+                result.Accumulate((KingdomStats.Type)leaderType, Game.Instance.BlueprintRoot.Kingdom.StatIncreaseOnEvent);
+            }
+            bool willBeFinished = true;
+            if(blueprintKingdomEvent != null && blueprintKingdomEvent.IsRecurrent)
+            {
+                willBeFinished = m_SuccessCount >= blueprintKingdomEvent.Solutions.GetSuccessCount(leaderType);
+            }
+            if (willBeFinished)
+            {
+                var eventFinalResults = kingdomEvent.EventBlueprint.GetComponent<EventFinalResults>();
+                if(eventFinalResults != null && eventFinalResults.Results != null)
+                {
+                    foreach(var eventResult in eventFinalResults.Results)
+                    {
+                        var validConditions = eventResult.Condition == null || eventResult.Condition.Check(kingdomEvent.EventBlueprint);
+                        if (eventResult.MatchesMargin(checkMargin) && (alignment & eventResult.LeaderAlignment) != AlignmentMaskType.None && validConditions)
+                        {
+                            result.Accumulate(eventResult.StatChanges, 1);
+                        }
+                    }
+                }
+            }
+            return result;
+
+        }
+        static string FormatResult(KingdomEvent kingdomEvent, EventResult.MarginType margin, AlignmentMaskType alignment, LeaderType leaderType)
         {
             string text = "";
-            //var statChangesText = CalculateStatChanges(eventResults, eventResult, eventBlueprint).ToStringWithPrefix(" ");
-            var statChangesText = eventResult.StatChanges.ToStringWithPrefix(" ");
+            var statChanges = CalculateEventResult(kingdomEvent, margin, alignment, leaderType);
+            var statChangesText = statChanges.ToStringWithPrefix(" ");
             text += string.Format("{0}:{1}",
-                eventResult.Margin,
+                margin,
                 statChangesText == "" ? " No Change" : statChangesText);
             //TODO: Solution for presenting actions
-            //var actions = eventResult.Actions.Actions.Where((action) => action.GetType() != typeof(Conditional)).Join((action) => action.GetType().Name, ", ");
-            //if (actions != "") text += ". Actions: " + actions;
             text += "\n";
             return text;
         }
@@ -251,12 +300,12 @@ namespace KingdomResolution
                 {
                     if (!Main.enabled) return;
                     if (!Main.settings.previewEventResults) return;
-                    if (kingdomEventView.Task == null)
+                    if (kingdomEventView.Task == null || kingdomEventView.Task.Event == null)
                     {
                         return; //Task is null on event results;
                     }
+                    //Calculate results for current leader
                     var solutionText = Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>();
-                    //MakeTextScrollable(solutionText.transform.parent.GetComponent<RectTransform>());
                     solutionText.text += "\n";
                     var leader = kingdomEventView.Task.AssignedLeader;
                     if (leader == null)
@@ -269,28 +318,32 @@ namespace KingdomResolution
                     var resolutions = solutions.GetResolutions(leader.Type);
                     solutionText.text += "<size=75%>";
 
-                    var alignmentMask = leader.LeaderSelection.Alignment.ToMask();
-                    bool isValid(EventResult result) => (alignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
+                    var leaderAlignmentMask = leader.LeaderSelection.Alignment.ToMask();
+                    bool isValid(EventResult result) => (leaderAlignmentMask & result.LeaderAlignment) != AlignmentMaskType.None;
                     var validResults = resolutions.Where(isValid);
-                    solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + " - Alignment " + alignmentMask + "\n";
+                    solutionText.text += "Leader " + leader.LeaderSelection.CharacterName + " - Alignment " + leaderAlignmentMask + "\n";
                     foreach (var eventResult in validResults)
                     {
-                        solutionText.text += FormatResult(eventResult, resolutions, kingdomEventView.EventBlueprint);
+                        solutionText.text += FormatResult(kingdomEventView.Task.Event, eventResult.Margin, leaderAlignmentMask, leader.Type);
                     }
+                    //Calculate best result
                     int bestResult = 0;
-                    EventResult bestEventResult = null;
+                    KingdomStats.Changes bestEventResult = null;
                     LeaderType bestLeader = 0;
+                    AlignmentMaskType bestAlignment = 0;
                     foreach (var solution in solutions.Entries)
                     {
-                        foreach (var eventResult in solution.Resolutions)
+                        foreach(var alignmentMask in solution.Resolutions.Select(s => s.LeaderAlignment).Distinct())
                         {
+                            var eventResult = CalculateEventResult(kingdomEventView.Task.Event, EventResult.MarginType.GreatSuccess, alignmentMask, solution.Leader);
                             int sum = 0;
-                            for (int i = 0; i < 10; i++) sum += eventResult.StatChanges[(KingdomStats.Type)i];
+                            for (int i = 0; i < 10; i++) sum += eventResult[(KingdomStats.Type)i];
                             if (sum > bestResult)
                             {
                                 bestResult = sum;
                                 bestLeader = solution.Leader;
                                 bestEventResult = eventResult;
+                                bestAlignment = alignmentMask;
                             }
                         }
                     }
@@ -298,8 +351,8 @@ namespace KingdomResolution
                     if (bestEventResult != null)
                     {
                         solutionText.text += "<size=50%>\n<size=75%>";
-                        solutionText.text += "Best Result: Leader " + bestLeader + " - Alignment " + bestEventResult.LeaderAlignment + "\n";
-                        if (isValid(bestEventResult) && bestLeader == leader.Type)
+                        solutionText.text += "Best Result: Leader " + bestLeader + " - Alignment " + bestAlignment + "\n";
+                        if (bestLeader == leader.Type && (leaderAlignmentMask & bestAlignment) != AlignmentMaskType.None)
                         {
                             solutionText.text += "<color=#308014>";
                         }
@@ -307,15 +360,12 @@ namespace KingdomResolution
                         {
                             solutionText.text += "<color=#808080>";
                         }
-
-                        solutionText.text += FormatResult(bestEventResult, solutions.GetResolutions(bestLeader), kingdomEventView.EventBlueprint);
-                        if (!isValid(bestEventResult))
-                        {
-                            solutionText.text += "</color>";
-                        }
+                        solutionText.text += FormatResult(kingdomEventView.Task.Event, EventResult.MarginType.GreatSuccess, bestAlignment, bestLeader);
+                        solutionText.text += "</color>";
                     }
                     solutionText.text += "</size>";
                 }
+
                 catch (Exception ex)
                 {
                     Main.DebugError(ex);

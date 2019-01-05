@@ -120,7 +120,7 @@ namespace KingdomResolution
         static WeakReference<KingdomEvent> openEventRef = new WeakReference<KingdomEvent>(null);
         static WeakReference<KingdomEventHistoryEntry> openHistoryRef = new WeakReference<KingdomEventHistoryEntry>(null);
         static WeakReference<BlueprintKingdomEventTimeline.Entry> openEntryRef = new WeakReference<BlueprintKingdomEventTimeline.Entry>(null);
-        public static void PreviewTimeline()
+        public static void ShowTimeline()
         {
             var timeline = Game.Instance.BlueprintRoot.Kingdom.Timeline;
             var currentDay = KingdomState.Instance != null ? KingdomState.Instance.CurrentDay : 0;
@@ -190,7 +190,7 @@ namespace KingdomResolution
             GUILayout.EndHorizontal();
             if (OpenUI == KingdomInfoUI.Timeline)
             {
-                PreviewTimeline();
+                ShowTimeline();
             }
             if (OpenUI == KingdomInfoUI.Events)
             {
@@ -396,9 +396,10 @@ namespace KingdomResolution
         {
             GUILayout.Label($"Description: {blueprint.LocalizedDescription}");
             GUILayout.Label($"ResolutionTime: {blueprint.ResolutionTime} days");
-            GUILayout.Label($"ResolveAutomatically: {blueprint.ResolveAutomatically}");
             GUILayout.Label($"NeedToVistTheThroneRoom: {blueprint.NeedToVisitTheThroneRoom}");
-            GUILayout.Label($"BlueprintType: {blueprint.GetType().Name}");
+            GUILayout.Label($"TriggerCondition: {Util.FormatConditions(blueprint.TriggerCondition)}");
+            if(blueprint.HasDC) GUILayout.Label($"ResolutionDC: {blueprint.ResolutionDC}");
+            if(!blueprint.HasDC) GUILayout.Label($"AutoResolveResult: {blueprint.AutoResolveResult}");
             if (blueprint is BlueprintKingdomEvent bke)
             {
                 var actionText = Util.FormatActions(bke.OnTrigger);
@@ -419,19 +420,24 @@ namespace KingdomResolution
                 if (string.IsNullOrEmpty(bkc.FailedDescription)) GUILayout.Label($"FailedDescription: {bkc.FailedDescription}");
                 if (string.IsNullOrEmpty(bkc.FulfilledDescription)) GUILayout.Label($"FulfilledDescription: {bkc.FulfilledDescription}");
             }
-            foreach (var solution in blueprint.Solutions.Entries)
+            if (blueprint.ResolveAutomatically) GUILayout.Label($"ResolveAutomatically: {blueprint.ResolveAutomatically}");
+            if (!blueprint.ResolveAutomatically)
             {
-                foreach (var result in solution.Resolutions)
+                foreach (var solution in blueprint.Solutions.Entries)
                 {
-                    if (IsResultEmpty(result)) continue;
-                    var statChangesText = result.StatChanges.ToStringWithPrefix(" ");
-                    var actionText = Util.FormatActions(result.Actions);
-                    GUILayout.Label($"PossibleSolution: {result.Margin}, Leader {solution.Leader}, DC {solution.DCModifier}", Util.BoldLabel);
-                    if(result.LeaderAlignment != Kingmaker.UnitLogic.Alignments.AlignmentMaskType.Any) GUILayout.Label($"Alignment: {result.LeaderAlignment}");
-                    if (actionText != "") GUILayout.Label($"Actions: {actionText}");
-                    if(!result.StatChanges.IsEmpty) GUILayout.Label($"StatChanges: {statChangesText}");
-                    if(result.SuccessCount != 0) GUILayout.Label($"SuccessCount: {result.SuccessCount}");
-                    if(result.LocalizedDescription != "") GUILayout.Label($"Description: {result.LocalizedDescription}");
+                    foreach (var result in solution.Resolutions)
+                    {
+                        if (IsResultEmpty(result)) continue;
+                        var statChangesText = result.StatChanges.ToStringWithPrefix(" ");
+                        var actionText = Util.FormatActions(result.Actions);
+                        GUILayout.Label($"PossibleSolution: {result.Margin}, Leader {solution.Leader}, DC {solution.DCModifier}", Util.BoldLabel);
+                        if (result.LeaderAlignment != Kingmaker.UnitLogic.Alignments.AlignmentMaskType.Any) GUILayout.Label($"Alignment: {result.LeaderAlignment}");
+                        if (actionText != "") GUILayout.Label($"Actions: {actionText}");
+                        if (!result.StatChanges.IsEmpty) GUILayout.Label($"StatChanges: {statChangesText}");
+                        if (result.SuccessCount != 0) GUILayout.Label($"SuccessCount: {result.SuccessCount}");
+                        if (result.LocalizedDescription != "") GUILayout.Label($"Description: {result.LocalizedDescription}");
+                        if (result.Condition != null) GUILayout.Label($"Conditions: {result.Condition}");
+                    }
                 }
             }
             var finalResults = blueprint.GetComponent<EventFinalResults>();
@@ -445,6 +451,7 @@ namespace KingdomResolution
                 if (!result.StatChanges.IsEmpty) GUILayout.Label($"StatChanges: {statChangesText}");
                 if (result.SuccessCount != 0) GUILayout.Label($"SuccessCount: {result.SuccessCount}");
                 if (result.LocalizedDescription != "") GUILayout.Label($"Description: {result.LocalizedDescription}");
+                if (result.Condition != null) GUILayout.Label($"Conditions: {result.Condition}");
             }
         }
         public static void ShowEvent(KingdomEvent activeEvent)
