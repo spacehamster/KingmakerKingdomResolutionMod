@@ -1,9 +1,4 @@
 ﻿using Kingmaker.UI.SettingsUI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityModManagerNet;
 
 namespace KingdomResolution
@@ -19,6 +14,7 @@ namespace KingdomResolution
         public bool easyEvents = false;
         public bool pauseKingdomTimeline = false;
         public bool alwaysManageKingdom = false;
+        public bool alwaysAdvanceTime = false;
         public bool alwaysBaronProcurement = false;
         public bool previewEventResults = false;
         public bool previewDialogResults = false;
