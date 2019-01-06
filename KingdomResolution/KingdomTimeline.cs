@@ -5,9 +5,13 @@ using Kingmaker.Designers.EventConditionActionSystem.Actions;
 using Kingmaker.Kingdom;
 using Kingmaker.Kingdom.Artisans;
 using Kingmaker.Kingdom.Blueprints;
+using Kingmaker.Kingdom.Rules;
 using Kingmaker.Kingdom.Settlements;
 using Kingmaker.Kingdom.Tasks;
+using Kingmaker.PubSubSystem;
+using Kingmaker.RuleSystem;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -15,11 +19,73 @@ namespace KingdomResolution
 {
     class KingdomTimeline
     {
-
-        public static void FixTimeline()
+        /*
+         * Pause Kingdom works by keeping current day constant, and increasing kingdom start day to compensate
+         * To manage kingdom while paused, event start and finish days are moved backwards to simulate currentday moving forwards
+         * any events that depend on CurrentDay need to be manually triggered
+         */
+        public static void FixTimeline(int delta)
         {
-            int delta = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay - KingdomState.Instance.StartDay;
-            KingdomState.Instance.StartDay = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay;
+            if (delta < 1) return;
+            if (!Main.settings.enablePausedKingdomManagement) return;
+            foreach (KingdomBuff kingdomBuff in KingdomState.Instance.ActiveBuffs.Enumerable)
+            {
+                if (kingdomBuff.EndsOnDay > 0 && KingdomState.Instance.CurrentDay >= kingdomBuff.EndsOnDay)
+                {
+                    kingdomBuff.EndsOnDay = (int)Math.Max(1, kingdomBuff.EndsOnDay - delta);
+                }
+            }
+            foreach (RegionState regionState in KingdomState.Instance.Regions)
+            {
+                SettlementState settlement = regionState.Settlement;
+                if (settlement != null)
+                {
+                    foreach (var building in settlement.Buildings)
+                    {
+                        if (building.IsFinished) continue;
+                        building.FinishedOn = building.FinishedOn - delta;
+                    }
+                }
+            }
+            foreach (RegionState regionState2 in KingdomState.Instance.Regions)
+            {
+                foreach (Artisan artisan in regionState2.Artisans)
+                {
+                    if (artisan.HasHelpProject) continue;
+                    artisan.ProductionStartedOn = artisan.ProductionStartedOn - delta;
+                    artisan.ProductionEndsOn = artisan.ProductionEndsOn - delta;
+                }
+            }
+            foreach (KingdomTask task in KingdomState.Instance.ActiveTasks)
+            {
+                if (!(task is KingdomTaskEvent kte)) continue;
+                if (!kte.IsInProgress) continue;
+                if (kte.Event.EventBlueprint is BlueprintKingdomProject bkp)
+                {
+                    //Traverse.Create(task).Property<int>("StartedOn").Value = task.StartedOn - delta;
+                    typeof(KingdomTask).GetProperty("StartedOn").SetValue(task, task.StartedOn - delta, null);
+                }
+            }
+            foreach (var kingdomEvent in KingdomState.Instance.ActiveEvents)
+            {
+                if (kingdomEvent.IsFinished) continue;
+                var m_StartedOn = Traverse.Create(kingdomEvent).Field("m_StartedOn").GetValue<int>();
+                Traverse.Create(kingdomEvent).Field("m_StartedOn").SetValue(m_StartedOn - delta);
+            }
+            for (int i = 0; i < delta; i++)
+            {
+                if ((Game.Instance.TimeController.GameTime.TotalDays - delta) % 7 == 0)
+                {
+                    KingdomState.Instance.BPPerTurnTotal = Rulebook.Trigger<RuleCalculateBPGain>(new RuleCalculateBPGain()).BPToAdd;
+                    KingdomState.Instance.BP += KingdomState.Instance.BPPerTurnTotal;
+                    KingdomState.Instance.CurrentTurn++;
+                    EventBus.RaiseEvent(delegate (IKingdomLogHandler h)
+                    {
+                        h.OnBPGained(KingdomState.Instance.BPPerTurnTotal);
+                    });
+                }
+            }
+            KingdomState.Instance.LastRavenVisitDay -= delta;
         }
         /*
          * CurrentDay is used in a large amound of places, and is updated when UpdateTimeline is ran
@@ -30,75 +96,51 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(KingdomTimelineManager), "UpdateTimeline")]
         static class KingdomTimelineManager_UpdateTimeline_Patch
         {
-            static bool Prefix()
+            static bool Prefix(KingdomTimelineManager __instance)
             {
                 try
                 {
                     if (!Main.enabled) return true;
                     if (!Main.settings.pauseKingdomTimeline) return true;
-                    FixTimeline();
-                } catch(Exception ex)
+
+                    int delta = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay - KingdomState.Instance.StartDay;
+                    KingdomState.Instance.StartDay = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay;
+                    bool changed = false;
+                    for (int i = 0; i < delta; i++)
+                    {
+                        FixTimeline(1);
+                        changed = changed || Traverse.Create(__instance).Method("UpdateTimelineOneDay").GetValue<bool>();
+                    }
+                    EventBus.RaiseEvent(delegate (IKingdomTimeChanged h)
+                    {
+                        h.OnTimeChanged(changed);
+                    });
+                } catch (Exception ex)
                 {
                     Main.DebugError(ex);
                 }
                 return true;
             }
         }
-        [HarmonyPatch(typeof(KingdomTimelineManager), "MaybeUpdateTimeline")]
-        static class KingdomState_MaybeUpdateTimeline_Patch
+        [HarmonyPatch(typeof(KingdomTimelineManager), "RollRandomEvents")]
+        static class KingdomTimelineManager_RollRandomEvents_Patch
         {
             static bool Prefix()
             {
-                try { 
-                    if (!Main.enabled) return true;
-                    if (!Main.settings.pauseKingdomTimeline) return true;
-                    int delta = (int)Game.Instance.TimeController.GameTime.TotalDays - KingdomState.Instance.CurrentDay - KingdomState.Instance.StartDay;
-                    FixTimeline();
-                } catch(Exception ex)
-                {
-                    Main.DebugError(ex);
+                if (!Main.enabled) return true;
+                if (Main.settings.pauseKingdomTimeline) {
+                    if (Main.settings.enablePausedKingdomManagement && Main.settings.enablePausedRandomEvents) return true;
+                    return false;
                 }
                 return true;
             }
         }
-        [HarmonyPatch(typeof(KingdomState), "DaysTillNextMonth", MethodType.Getter)]
-        static class KingdomState_DaysTillNextMonth_Patch
-        {
-            static bool Prefix(ref int __result)
-            {
-                if (!Main.enabled) return true;
-                if (!Main.settings.pauseKingdomTimeline) return true;
-                return true;
-            }
-        }
-        /*
-         * KingdomState.Date is used by 
-         * RollRandomEvents to effect the delay random events have
-         * and by KingdomTimelineManager.UpdateTImelineOneDay to check if start of the month
-         * and RollRandomEvents
-         */
-        [HarmonyPatch(typeof(KingdomState), "Date", MethodType.Getter)]
-        static class KingdomTimelineManager_Date_Patch
-        {
-            static bool Prefix(ref DateTime __result)
-            {
-                if (!Main.enabled) return true;
-                if (!Main.settings.pauseKingdomTimeline) return true;
-                var date = KingdomState.Instance.ToDate(KingdomState.Instance.CurrentDay);
-                if (date.Day == 1)
-                {
-                    date = KingdomState.Instance.ToDate(KingdomState.Instance.CurrentDay - 1);
-                }
-                __result = date;
-                return true;
-            }
-        }
-        static bool CausesGameOver(BlueprintKingdomEvent blueprint){
+        static bool CausesGameOver(BlueprintKingdomEvent blueprint) {
             var results = blueprint.GetComponent<EventFinalResults>();
             if (results == null) return false;
-            foreach(var result in results.Results)
+            foreach (var result in results.Results)
             {
-                foreach(var action in result.Actions.Actions)
+                foreach (var action in result.Actions.Actions)
                 {
                     if (action is GameOver) return true;
                 }
@@ -128,15 +170,15 @@ namespace KingdomResolution
             {
                 var nextBP = 7 - KingdomState.Instance.CurrentDay % 7;
                 GUILayout.Label($"GameTime {Game.Instance.TimeController.GameTime.TotalDays:0.#} StartDay {KingdomState.Instance.StartDay} Current Day {KingdomState.Instance.CurrentDay} Day of Month {KingdomState.Instance.Date.Day} NextBP {nextBP}");
-                foreach(var entry in timeline.Entries.Entries)
+                foreach (var entry in timeline.Entries.Entries)
                 {
-                    if(currentDay < entry.Day && CausesGameOver(entry.Event) && entry.Event.TriggerCondition.Check())
+                    if (currentDay < entry.Day && CausesGameOver(entry.Event) && entry.Event.TriggerCondition.Check())
                     {
                         GUILayout.Label($"GameOver in {entry.Day - currentDay} days from {entry.Event.LocalizedName}");
                         break;
                     }
                 }
-            } 
+            }
             else
             {
                 GUILayout.Label($"GameTime {Game.Instance.TimeController.GameTime.TotalDays:0.#} GameOver in {90 - Game.Instance.TimeController.GameTime.TotalDays:0.#} days from Stolen Lands");
@@ -179,10 +221,10 @@ namespace KingdomResolution
             foreach (KingdomInfoUI value in Enum.GetValues(typeof(KingdomInfoUI)))
             {
                 if (value == KingdomInfoUI.None) continue;
-                if(OpenUI == value && GUILayout.Button($"Hide {value}"))
+                if (OpenUI == value && GUILayout.Button($"Hide {value}"))
                 {
                     OpenUI = KingdomInfoUI.None;
-                } else if(OpenUI != value && GUILayout.Button($"Show {value}"))
+                } else if (OpenUI != value && GUILayout.Button($"Show {value}"))
                 {
                     OpenUI = value;
                 }
@@ -219,7 +261,7 @@ namespace KingdomResolution
             foreach (var region in KingdomState.Instance.Regions)
             {
                 openArtisanRef.TryGetTarget(out Artisan openArtisan);
-                foreach(var artisan in region.Artisans)
+                foreach (var artisan in region.Artisans)
                 {
                     GUILayout.BeginHorizontal();
                     var productionString = "";
@@ -250,11 +292,11 @@ namespace KingdomResolution
                     }
                     if (artisan.CurrentProduction.Count == 0 && artisan.BuildingUnlocked)
                     {
-                            var building = region.Settlement?.Buildings.FirstOrDefault((SettlementBuilding s) => s.Blueprint.CountsAs(artisan.Blueprint.ShopBlueprint) && s.Active);
-                            if(building != null && !building.IsDisabled && GUILayout.Button("Schedule Production", GUILayout.ExpandWidth(false)))
-                            {
-                                artisan.Update();
-                            }
+                        var building = region.Settlement?.Buildings.FirstOrDefault((SettlementBuilding s) => s.Blueprint.CountsAs(artisan.Blueprint.ShopBlueprint) && s.Active);
+                        if (building != null && !building.IsDisabled && GUILayout.Button("Schedule Production", GUILayout.ExpandWidth(false)))
+                        {
+                            artisan.Update();
+                        }
                     }
                     if (artisan != openArtisan && GUILayout.Button("More", GUILayout.Width(45)))
                     {
@@ -271,7 +313,7 @@ namespace KingdomResolution
                     {
                         var TiersUnlocked = Traverse.Create(artisan).Field("TiersUnlocked").GetValue<bool[]>();
                         var blueprint = artisan.Blueprint;
-                        var currentProductionString = artisan.CurrentProduction.Count > 0 ? 
+                        var currentProductionString = artisan.CurrentProduction.Count > 0 ?
                                 artisan.CurrentProduction.Join(bp => bp.Name)
                                 : "None";
                         var onProductionStartedString = blueprint.OnProductionStarted.Actions.Length == 0 ? "None" : Util.FormatActions(blueprint.OnProductionStarted);
@@ -305,9 +347,9 @@ namespace KingdomResolution
                         foreach (var itemDeck in blueprint.ItemDecks)
                         {
                             GUILayout.Label($"ItemDeck: {itemDeck.name}");
-                            if(!string.IsNullOrEmpty(itemDeck.TypeName)) GUILayout.Label($"  TypeName: {itemDeck.TypeName}");
+                            if (!string.IsNullOrEmpty(itemDeck.TypeName)) GUILayout.Label($"  TypeName: {itemDeck.TypeName}");
                             int tierIndex = 0;
-                            foreach(var tier in itemDeck.Tiers)
+                            foreach (var tier in itemDeck.Tiers)
                             {
                                 var tierItemsString = tier.Packs.Join(pack => pack.Items.Join(item => item.Name));
                                 if (tierItemsString == "") tierItemsString = "None";
@@ -394,18 +436,19 @@ namespace KingdomResolution
         }
         public static void ShowBlueprintEvent(BlueprintKingdomEventBase blueprint)
         {
+            GUILayout.Label($"Bluerpint: {blueprint.DisplayName} ({blueprint.name})", Util.BoldLabel);
             GUILayout.Label($"Description: {blueprint.LocalizedDescription}");
             GUILayout.Label($"ResolutionTime: {blueprint.ResolutionTime} days");
             GUILayout.Label($"NeedToVistTheThroneRoom: {blueprint.NeedToVisitTheThroneRoom}");
             GUILayout.Label($"TriggerCondition: {Util.FormatConditions(blueprint.TriggerCondition)}");
-            if(blueprint.HasDC) GUILayout.Label($"ResolutionDC: {blueprint.ResolutionDC}");
-            if(!blueprint.HasDC) GUILayout.Label($"AutoResolveResult: {blueprint.AutoResolveResult}");
+            if (blueprint.HasDC) GUILayout.Label($"ResolutionDC: {blueprint.ResolutionDC}");
+            if (!blueprint.HasDC) GUILayout.Label($"AutoResolveResult: {blueprint.AutoResolveResult}");
             if (blueprint is BlueprintKingdomEvent bke)
             {
                 var actionText = Util.FormatActions(bke.OnTrigger);
                 var statChangesText = bke.StatsOnTrigger.ToStringWithPrefix(" ");
                 if (actionText != "") GUILayout.Label($"OnTrigger: {actionText}");
-                if(!bke.StatsOnTrigger.IsEmpty) GUILayout.Label($"StatsOnTrigger: {statChangesText}"); 
+                if (!bke.StatsOnTrigger.IsEmpty) GUILayout.Label($"StatsOnTrigger: {statChangesText}");
             }
             if (blueprint is BlueprintKingdomProject bkp)
             {
@@ -413,14 +456,14 @@ namespace KingdomResolution
             }
             if (blueprint is BlueprintKingdomClaim bkc)
             {
-                if (bkc.KnownCondition != null) GUILayout.Label($"KnownConditions: {Util.FormatConditions(bkc.KnownCondition)}");
-                if (bkc.FailCondition != null) GUILayout.Label($"FailCondition: {Util.FormatConditions(bkc.FailCondition)}");
+                if (bkc.KnownCondition != null && bkc.KnownCondition.Conditions.Length > 0) GUILayout.Label($"KnownConditions: {Util.FormatConditions(bkc.KnownCondition)}");
+                if (bkc.FailCondition != null && bkc.FailCondition.Conditions.Length > 0) GUILayout.Label($"FailCondition: {Util.FormatConditions(bkc.FailCondition)}");
                 if (string.IsNullOrEmpty(bkc.UnknownDescription)) GUILayout.Label($"UnknownDescription: {bkc.UnknownDescription}");
                 if (string.IsNullOrEmpty(bkc.KnownDescription)) GUILayout.Label($"KnownDescription: {bkc.KnownDescription}");
                 if (string.IsNullOrEmpty(bkc.FailedDescription)) GUILayout.Label($"FailedDescription: {bkc.FailedDescription}");
                 if (string.IsNullOrEmpty(bkc.FulfilledDescription)) GUILayout.Label($"FulfilledDescription: {bkc.FulfilledDescription}");
             }
-            if (blueprint.ResolveAutomatically) GUILayout.Label($"ResolveAutomatically: {blueprint.ResolveAutomatically}");
+            GUILayout.Label($"ResolveAutomatically: {blueprint.ResolveAutomatically}");
             if (!blueprint.ResolveAutomatically)
             {
                 foreach (var solution in blueprint.Solutions.Entries)
@@ -436,28 +479,35 @@ namespace KingdomResolution
                         if (!result.StatChanges.IsEmpty) GUILayout.Label($"StatChanges: {statChangesText}");
                         if (result.SuccessCount != 0) GUILayout.Label($"SuccessCount: {result.SuccessCount}");
                         if (result.LocalizedDescription != "") GUILayout.Label($"Description: {result.LocalizedDescription}");
-                        if (result.Condition != null) GUILayout.Label($"Conditions: {result.Condition}");
+                        if (result.Condition != null && result.Condition.Conditions.Length > 0) GUILayout.Label($"Conditions: {Util.FormatConditions(result.Condition)}");
                     }
                 }
             }
             var finalResults = blueprint.GetComponent<EventFinalResults>();
-            if(finalResults != null) foreach(var result in finalResults.Results)
-            {
-                var statChangesText = result.StatChanges.ToStringWithPrefix(" ");
-                var actionText = Util.FormatActions(result.Actions);
-                GUILayout.Label($"FinalResult {result.Margin}", Util.BoldLabel);
-                if (result.LeaderAlignment != Kingmaker.UnitLogic.Alignments.AlignmentMaskType.Any) GUILayout.Label($"Alignment: {result.LeaderAlignment}");
-                if (actionText != "") GUILayout.Label($"Actions: {actionText}");
-                if (!result.StatChanges.IsEmpty) GUILayout.Label($"StatChanges: {statChangesText}");
-                if (result.SuccessCount != 0) GUILayout.Label($"SuccessCount: {result.SuccessCount}");
-                if (result.LocalizedDescription != "") GUILayout.Label($"Description: {result.LocalizedDescription}");
-                if (result.Condition != null) GUILayout.Label($"Conditions: {result.Condition}");
-            }
+            if (finalResults != null) foreach (var result in finalResults.Results)
+                {
+                    var statChangesText = result.StatChanges.ToStringWithPrefix(" ");
+                    var actionText = Util.FormatActions(result.Actions);
+                    GUILayout.Label($"FinalResult {result.Margin}", Util.BoldLabel);
+                    if (result.LeaderAlignment != Kingmaker.UnitLogic.Alignments.AlignmentMaskType.Any) GUILayout.Label($"Alignment: {result.LeaderAlignment}");
+                    if (actionText != "") GUILayout.Label($"Actions: {actionText}");
+                    if (!result.StatChanges.IsEmpty) GUILayout.Label($"StatChanges: {statChangesText}");
+                    if (result.SuccessCount != 0) GUILayout.Label($"SuccessCount: {result.SuccessCount}");
+                    if (result.LocalizedDescription != "") GUILayout.Label($"Description: {result.LocalizedDescription}");
+                    if (result.Condition != null && result.Condition.Conditions.Length > 0) GUILayout.Label($"Conditions: {Util.FormatConditions(result.Condition)}");
+                }
         }
         public static void ShowEvent(KingdomEvent activeEvent)
         {
-            GUILayout.Label($"IsRecurrent {activeEvent.IsRecurrent}");
+            GUILayout.Label($"FullName {activeEvent.FullName}");
+            GUILayout.Label($"CheckTriggerOnStart {activeEvent.CheckTriggerOnStart}");
+            GUILayout.Label($"ContinueRecurrentSolution {activeEvent.ContinueRecurrentSolution}");
             GUILayout.Label($"DCModifier {activeEvent.DCModifier}");
+            GUILayout.Label($"IgnoredOn {activeEvent.IgnoredOn}");
+            GUILayout.Label($"IsFinished {activeEvent.IsFinished}");
+            GUILayout.Label($"IsPlanned {activeEvent.IsPlanned}");
+            GUILayout.Label($"IsRecurrent {activeEvent.IsRecurrent}");
+            GUILayout.Label($"NeedsTask {activeEvent.NeedsTask}");
             GUILayout.Label($"StartedOn {activeEvent.StartedOn}");
             ShowBlueprintEvent(activeEvent.EventBlueprint);
         }
@@ -473,11 +523,23 @@ namespace KingdomResolution
             foreach (var activeEvent in KingdomState.Instance.ActiveEvents)
             {
                 GUILayout.BeginHorizontal();
-                var timeString = activeEvent.IsPlanned ?
-                    $"Starts in {activeEvent.StartedOn - KingdomState.Instance.CurrentDay} days" :
-                    activeEvent.IsFinished ?
-                    $"Finished" :
-                    "Active";
+                var timeString = "";
+                if (activeEvent.IsPlanned)
+                {
+                    timeString = $"Starts in {activeEvent.StartedOn - KingdomState.Instance.CurrentDay} days";
+                }
+                else if (activeEvent.IsFinished)
+                {
+                    timeString = $"Finished";
+                }
+                else if (activeEvent.EventBlueprint.NeedToVisitTheThroneRoom && activeEvent.EventBlueprint.ResolveAutomatically)
+                {
+                    timeString = $"Should visit throneroom by {activeEvent.StartedOn + activeEvent.CalculateResolutionTime() - KingdomState.Instance.CurrentDay} days";
+                }
+                else
+                {
+                    timeString = "Active";
+                }
                 var labelStyle = Util.BoxLabel;
                 GUILayout.Label($"{activeEvent.FullName}, {timeString}", labelStyle);
                 if (activeEvent != openEvent && GUILayout.Button("More", GUILayout.Width(45)))
@@ -507,6 +569,26 @@ namespace KingdomResolution
             d = new DateTime(d.Year, d.Month, 1);
             return KingdomState.Instance.ToDay(d) - KingdomState.Instance.CurrentDay;
         }
+        static List<string> m_TaskInfo;
+        static List<string> GetTaskInfo(KingdomTask activeTask)
+        {
+            if(m_TaskInfo == null)
+            {
+                m_TaskInfo = new List<string>();
+                m_TaskInfo.Add($"Description: {activeTask.Description}");
+                m_TaskInfo.Add($"StartedOn: {activeTask.StartedOn}");
+                m_TaskInfo.Add($"EndsOn: {activeTask.EndsOn}");
+                m_TaskInfo.Add($"Duration: {activeTask.Duration}");
+                m_TaskInfo.Add($"OneTimeBPCost: {activeTask.OneTimeBPCost}");
+                m_TaskInfo.Add($"SkipPlayerTime: {activeTask.SkipPlayerTime}");
+                m_TaskInfo.Add($"NeedsIgnore: {activeTask.NeedsIgnore}");
+                m_TaskInfo.Add($"IsValid: {activeTask.IsValid}");
+                m_TaskInfo.Add($"IsStarted: {activeTask.IsStarted}");
+                m_TaskInfo.Add($"IsFinished: {activeTask.IsFinished}");
+                m_TaskInfo.Add($"IsInProgress: {activeTask.IsInProgress}");
+            }
+            return m_TaskInfo;
+        }
         public static void ShowActiveTasks()
         {
             if (KingdomState.Instance == null)
@@ -534,30 +616,28 @@ namespace KingdomResolution
                 {
                     openTaskRef.SetTarget(activeTask);
                     openTask = activeTask;
+                    m_TaskInfo = null;
                 }
                 else if (activeTask == openTask && GUILayout.Button("Less", GUILayout.Width(45)))
                 {
                     openTaskRef.SetTarget(null);
                     openTask = null;
+                    m_TaskInfo = null;
                 }
                 GUILayout.EndHorizontal();
                 if (activeTask == openTask)
                 {
-                    GUILayout.Label($"Description: {activeTask.Description}");
-                    GUILayout.Label($"TaskStartedOn: {activeTask.StartedOn}");
-                    GUILayout.Label($"Duration: {activeTask.Duration}");
-                    GUILayout.Label($"OneTimeBPCost: {activeTask.OneTimeBPCost}");
-                    GUILayout.Label($"SkipPlayerTime: {activeTask.SkipPlayerTime}");
-                    GUILayout.Label($"NeedsIgnore: {activeTask.NeedsIgnore}");
                     if (activeTask.Region != null) GUILayout.Label($"Region: {activeTask.Region.Blueprint.LocalizedName}");
                     if (kte != null)
                     {
+                        var taskInfo = GetTaskInfo(activeTask);
+                        foreach (var text in taskInfo) GUILayout.Label(text);
                         var eventStatus = kte.Event.IsPlanned ?
                             $"Starts in {kte.Event.StartedOn - KingdomState.Instance.CurrentDay} days" :
                             kte.Event.IsFinished ?
                             $"Finished" :
                             "Active";
-                        GUILayout.Label($"Event: {kte.Event.FullName} - {eventStatus}");
+                        GUILayout.Label($"Event: {kte.Event.FullName} - {eventStatus}", Util.BoldLabel);
                         ShowEvent(kte.Event);
                     }
                 }

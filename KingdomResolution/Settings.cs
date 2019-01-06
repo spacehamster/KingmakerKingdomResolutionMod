@@ -13,6 +13,9 @@ namespace KingdomResolution
         public bool overrideIgnoreEvents = false;
         public bool easyEvents = false;
         public bool pauseKingdomTimeline = false;
+        public bool enablePausedKingdomManagement = false;
+        public bool enablePausedRandomEvents = false;
+        public bool disableAutoAssignLeaders = false;
         public bool alwaysManageKingdom = false;
         public bool alwaysAdvanceTime = false;
         public bool alwaysBaronProcurement = false;

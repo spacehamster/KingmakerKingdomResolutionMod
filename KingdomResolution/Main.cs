@@ -60,24 +60,30 @@ namespace KingdomResolution
             try
             {
                 string percentFormatter(float value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
+                GUILayout.Label("Kingdom Options", Util.BoldLabel);
                 ChooseFactor("Event Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Project Time Factor ", settings.projectTimeFactor, 1, (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Ruler Managed Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 ChooseFactor("Event BP Price Factor ", settings.eventPriceFactor, 1,
                     (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => Math.Round(Math.Round(value, 2) * 100, 0) + " %");
-                settings.skipPlayerTime = GUILayout.Toggle(settings.skipPlayerTime, "Disable Skip Player Time ", GUILayout.ExpandWidth(false));
-                settings.alwaysManageKingdom = GUILayout.Toggle(settings.alwaysManageKingdom, "Enable Manage Kingdom Everywhere ", GUILayout.ExpandWidth(false));
-                settings.alwaysAdvanceTime = GUILayout.Toggle(settings.alwaysAdvanceTime, "Enable Skip Day/Claim Region Everywhere ", GUILayout.ExpandWidth(false));
-                settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only) ", GUILayout.ExpandWidth(false));
-                settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
-                settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
-                settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
-                settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
-                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Alignment Restricted Dialog ", GUILayout.ExpandWidth(false));
-                //GUILayout.BeginHorizontal();
+                settings.alwaysManageKingdom = GUILayout.Toggle(settings.alwaysManageKingdom, "Enable Manage Kingdom Everywhere", GUILayout.ExpandWidth(false));
+                settings.alwaysAdvanceTime = GUILayout.Toggle(settings.alwaysAdvanceTime, "Enable Skip Day/Claim Region Everywhere", GUILayout.ExpandWidth(false));
+                settings.skipPlayerTime = GUILayout.Toggle(settings.skipPlayerTime, "Disable Skip Player Time", GUILayout.ExpandWidth(false));
+                settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only)", GUILayout.ExpandWidth(false));
+                settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events", GUILayout.ExpandWidth(false));
+                settings.disableAutoAssignLeaders = GUILayout.Toggle(settings.disableAutoAssignLeaders, "Disable Auto Assign Leaders", GUILayout.ExpandWidth(false));
+                GUILayout.BeginHorizontal();
                 settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
-                //GUILayout.EndHorizontal();
+                if (settings.pauseKingdomTimeline)
+                {
+                    settings.enablePausedKingdomManagement = GUILayout.Toggle(settings.enablePausedKingdomManagement, "Enable Paused Kingdom Management  ", GUILayout.ExpandWidth(false));
+                    if (settings.enablePausedKingdomManagement)
+                    {
+                        settings.enablePausedRandomEvents = GUILayout.Toggle(settings.enablePausedRandomEvents, "Enable Paused Random Events  ", GUILayout.ExpandWidth(false));
+                    }
+                }
+                GUILayout.EndHorizontal();
                 if (SettingsRoot.Instance.KingdomManagementMode.CurrentValue == KingdomDifficulty.Auto)
                 {
                     if (GUILayout.Button("Disable Auto Kingdom Management Mode"))
@@ -86,8 +92,14 @@ namespace KingdomResolution
                         SettingsRoot.Instance.KingdomDifficulty.CurrentValue = KingdomDifficulty.Easy;
                     }
                 }
-                KingdomStash.OnGUI();
                 ChooseKingdomUnreset();
+                GUILayout.Label("Preview Options", Util.BoldLabel);
+                settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results", GUILayout.ExpandWidth(false));
+                settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results", GUILayout.ExpandWidth(false));
+                settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog", GUILayout.ExpandWidth(false));
+                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Alignment Restricted Dialog ", GUILayout.ExpandWidth(false));
+                GUILayout.Label("Misc Options", Util.BoldLabel);
+                KingdomStash.OnGUI();
                 KingdomTimeline.OnGUI();
 
 
@@ -121,7 +133,7 @@ namespace KingdomResolution
         static void ChooseFactor(string label, float value, float maxValue, Action<float> setter, Func<float, string> formatter)
         {
             GUILayout.BeginHorizontal();
-            GUILayout.Label(label, GUILayout.Width(200));
+            GUILayout.Label(label, GUILayout.Width(300));
             var newValue = GUILayout.HorizontalSlider(value, 0, maxValue, GUILayout.Width(300));
             GUILayout.Label(formatter(newValue));
             GUILayout.EndHorizontal();
@@ -173,12 +185,13 @@ namespace KingdomResolution
                         __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
                         __result = __result < 1 ? 1 : __result;
                     }
-                    else if (__instance.EventBlueprint is BlueprintKingdomProject && __instance.CalculateRulerTime() > 0)
+                    var projectBlueprint = __instance.EventBlueprint as BlueprintKingdomProject;
+                    if (projectBlueprint != null && projectBlueprint.SpendRulerTimeDays > 0)
                     {
                         __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
                         __result = __result < 1 ? 1 : __result;
                     }
-                    else if (__instance.EventBlueprint is BlueprintKingdomProject)
+                    if (projectBlueprint != null && projectBlueprint.SpendRulerTimeDays <= 0)
                     {
                         __result = Mathf.RoundToInt(__result * settings.projectTimeFactor);
                         __result = __result < 1 ? 1 : __result;
@@ -272,7 +285,7 @@ namespace KingdomResolution
                 }
             }
         }
-        [HarmonyPatch(typeof(Kingmaker.Kingdom.KingdomTimelineManager), "FailIgnoredEvents")]
+        [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
         static class KingdomTimelineManager_FailIgnoredEvents_Patch
         {
             static bool Prefix()
@@ -287,6 +300,16 @@ namespace KingdomResolution
                     DebugError(ex);
                     return true;
                 }
+            }
+        }
+        [HarmonyPatch(typeof(KingdomTimelineManager), "AutoAssignLeaders")]
+        static class KingdomTimelineManager_AutoAssignLeaders_Patch
+        {
+            static bool Prefix()
+            {
+                if (!enabled) return true;
+                if (!settings.disableAutoAssignLeaders) return true;
+                return false;
             }
         }
     }
