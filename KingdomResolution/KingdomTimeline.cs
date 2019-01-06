@@ -74,7 +74,8 @@ namespace KingdomResolution
             }
             for (int i = 0; i < delta; i++)
             {
-                if ((Game.Instance.TimeController.GameTime.TotalDays - delta) % 7 == 0)
+                var totalDays = (int)Game.Instance.TimeController.GameTime.TotalDays;
+                if ((totalDays - delta) % 7 == 0)
                 {
                     KingdomState.Instance.BPPerTurnTotal = Rulebook.Trigger<RuleCalculateBPGain>(new RuleCalculateBPGain()).BPToAdd;
                     KingdomState.Instance.BP += KingdomState.Instance.BPPerTurnTotal;
