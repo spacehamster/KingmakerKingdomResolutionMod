@@ -97,7 +97,7 @@ namespace KingdomResolution
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog", GUILayout.ExpandWidth(false));
-                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Alignment Restricted Dialog ", GUILayout.ExpandWidth(false));
+                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Random Encounters ", GUILayout.ExpandWidth(false));
                 GUILayout.Label("Misc Options", Util.BoldLabel);
                 KingdomStash.OnGUI();
                 KingdomTimeline.OnGUI();
