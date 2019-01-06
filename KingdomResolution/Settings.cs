@@ -19,6 +19,7 @@ namespace KingdomResolution
         public bool easyEvents = false;
         public bool pauseKingdomTimeline = false;
         public bool alwaysManageKingdom = false;
+        public bool alwaysAdvanceTime = false;
         public bool alwaysBaronProcurement = false;
         public bool previewEventResults = false;
         public bool previewDialogResults = false;

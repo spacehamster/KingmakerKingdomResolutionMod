@@ -91,13 +91,14 @@ namespace KingdomResolution
                     (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => Math.Round(Math.Round(value, 2) * 100, 0) + " %");
                 settings.skipPlayerTime = GUILayout.Toggle(settings.skipPlayerTime, "Disable Skip Player Time ", GUILayout.ExpandWidth(false));
                 settings.alwaysManageKingdom = GUILayout.Toggle(settings.alwaysManageKingdom, "Enable Manage Kingdom Everywhere ", GUILayout.ExpandWidth(false));
+                settings.alwaysAdvanceTime = GUILayout.Toggle(settings.alwaysAdvanceTime, "Enable Skip Day/Claim Region Everywhere ", GUILayout.ExpandWidth(false));
                 settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only) ", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events  ", GUILayout.ExpandWidth(false));
                 settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
                 settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results  ", GUILayout.ExpandWidth(false));
                 settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results  ", GUILayout.ExpandWidth(false));
                 settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog  ", GUILayout.ExpandWidth(false));
-                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Alignment Restricted Dialog ", GUILayout.ExpandWidth(false));
+                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Random Encounter", GUILayout.ExpandWidth(false));
                 //GUILayout.BeginHorizontal();
                 settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
                 //GUILayout.EndHorizontal();
@@ -292,6 +293,22 @@ namespace KingdomResolution
                 {
                     if (!enabled) return;
                     if (!settings.alwaysManageKingdom) return;
+                    __result = true;
+                }
+                catch (Exception ex)
+                {
+                    DebugError(ex);
+                }
+            }
+        }
+        static class KingdomTimelineManager_CanAdvanceTime_Patch
+        {
+            static void Postfix(ref bool __result)
+            {
+                try
+                {
+                    if (!enabled) return;
+                    if (!settings.alwaysAdvanceTime) return;
                     __result = true;
                 }
                 catch (Exception ex)
