@@ -160,6 +160,7 @@ namespace KingdomResolution
                     else
                     {
                         __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
+                        __result = __result < 1 ? 1 : __result;
                     }
                 } catch(Exception ex)
                 {
