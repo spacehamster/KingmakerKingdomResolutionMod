@@ -148,11 +148,12 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(KingdomTaskEvent), "SkipPlayerTime", MethodType.Getter)]
         static class KingdomTaskEvent_SkipPlayerTime_Patch
         {
-            static void Postfix(KingdomTaskEvent __instance, ref int __result)
+            static void Postfix(ref int __result)
             {
                 try
                 {
                     if (!enabled) return;
+                    if (__result < 1) return;
                     if (settings.skipPlayerTime)
                     {
                         __result = 0;
