@@ -337,7 +337,7 @@ namespace KingdomResolution
                         GUILayout.Label($"Name: {blueprint.name}");
                         GUILayout.Label($"Shop: {blueprint.ShopBlueprint.Name}");
                         GUILayout.Label($"Masterpiece: {blueprint.Masterpiece.Name}");
-                        GUILayout.Label($"MasterpieceUnlock: {unlockMasterpiece}");
+                        GUILayout.Label($"MasterpieceUnlock: {unlockMasterpiece} - {blueprint.MasterpieceUnlock?.Check()}");
                         GUILayout.Label($"HelpProject: {blueprint.HelpProject?.LocalizedName ?? "None"}");
                         GUILayout.Label($"OnProductionStarted: {onProductionStartedString}");
                         GUILayout.Label($"OnGiftReady: {OnGiftReadyString}");
