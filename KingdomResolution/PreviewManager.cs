@@ -333,6 +333,7 @@ namespace KingdomResolution
                     AlignmentMaskType bestAlignment = 0;
                     foreach (var solution in solutions.Entries)
                     {
+                        if (!solution.CanBeSolved) continue;
                         foreach(var alignmentMask in solution.Resolutions.Select(s => s.LeaderAlignment).Distinct())
                         {
                             var eventResult = CalculateEventResult(kingdomEventView.Task.Event, EventResult.MarginType.GreatSuccess, alignmentMask, solution.Leader);
