@@ -73,6 +73,7 @@ namespace KingdomResolution
                 settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only)", GUILayout.ExpandWidth(false));
                 settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events", GUILayout.ExpandWidth(false));
                 settings.disableAutoAssignLeaders = GUILayout.Toggle(settings.disableAutoAssignLeaders, "Disable Auto Assign Leaders", GUILayout.ExpandWidth(false));
+                settings.currencyFallback = GUILayout.Toggle(settings.currencyFallback, "Enable Currency Fallback", GUILayout.ExpandWidth(false));
                 GUILayout.BeginHorizontal();
                 settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
                 if (settings.pauseKingdomTimeline)

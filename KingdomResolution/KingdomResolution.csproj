@@ -83,6 +83,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CurrencyFallback.cs" />
     <Compile Include="KingdomTimeline.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="KingdomStash.cs" />
