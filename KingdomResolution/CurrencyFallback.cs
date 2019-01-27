@@ -26,6 +26,9 @@ using static Kingmaker.Globalmap.State.LocationData;
 using Kingmaker.Achievements;
 using Kingmaker.Kingdom.UI;
 using static Kingmaker.Kingdom.KingdomUIRoot;
+using Kingmaker.UI.GlobalMap;
+using Kingmaker;
+using Kingmaker.Blueprints.Root.Strings;
 
 namespace KingdomResolution
 {
@@ -33,6 +36,7 @@ namespace KingdomResolution
     {
         public static string costFormat = "<size=-2>{0}</size>";
         public static string costSplitFormat = "<size=-2>{0}, {1} GP</size>";
+        public static string resourceCostSplitFormat = "{1} GP, {0}";
         public static bool CanSpend(int pointCost)
         {
             if (KingdomState.Instance.BP - pointCost >= 0)
@@ -85,14 +89,18 @@ namespace KingdomResolution
         [HarmonyPatch()]
         static class RequiredStaff_Initialize_Patch
         {
-            static Type TargetType()
+            static FastInvoker SetColor;
+            static Type TargetType() => AccessTools.Inner(typeof(BuildingItem), "RequiredStaff");
+            static bool Prepare()
             {
-                return AccessTools.Inner(typeof(BuildingItem), "RequiredStaff");
+                SetColor = Accessors.CreateInvoker(TargetType(), "SetColor", typeof(object), typeof(BlueprintSettlementBuilding), typeof(SettlementBuilding), typeof(SettlementState));
+                return true;
             }
-            static MethodBase TargetMethod() {
+            static MethodBase TargetMethod()
+            {
                 return TargetType().GetMethod("Initialize");
             }
-            static bool Prefix(object __instance, BlueprintSettlementBuilding building, SettlementBuilding settlementBuilding, SettlementState settlement, 
+            static bool Prefix(object __instance, BlueprintSettlementBuilding building, SettlementBuilding settlementBuilding, SettlementState settlement,
                     ref Image ___Slots, ref TextMeshProUGUI ___Cost, ref Image ___DiscountLayer)
             {
                 try
@@ -136,37 +144,123 @@ namespace KingdomResolution
                         ___Cost.text = string.Format(costFormat, string.Format(KingdomUIRoot.Instance.Texts.BuildPointsFormat, settlementBuilding.Owner.GetSellPrice(building)));
                     }
 
-                    AccessTools.DeclaredMethod(TargetType(), "SetColor").Invoke(__instance, new object[] { building, settlementBuilding, settlement });
+                    SetColor(__instance, building, settlementBuilding, settlement);
                     return false;
-                } catch (Exception ex)
+                }
+                catch (Exception ex)
                 {
                     Main.DebugError(ex);
                     return true;
                 }
             }
         }
+        [HarmonyPatch(typeof(KingdomUIEventWindowFooter), "CanStart")]
+        static class KingdomUIEventWindowFooter_CanStart_Patch
+        {
+            static FastInvoker<KingdomUIEventWindowFooter, bool> IsSpendRulerTimeDays;
+            static bool Prepare()
+            {
+                IsSpendRulerTimeDays = Accessors.CreateInvoker<KingdomUIEventWindowFooter, bool>("IsSpendRulerTimeDays");
+                return true;
+            }
+            static bool Prefix(KingdomUIEventWindowFooter __instance, ref bool __result, KingdomEventUIView kingdomEventView, ref bool enable)
+            {
+                try
+                {
+                    if (!Main.enabled) return true;
+                    if (!Main.settings.currencyFallback) return true;
+                    enable = false;
+                    if (kingdomEventView.Task == null)
+                    {
+                        __result = false;
+                        return false;
+                    }
+                    if (kingdomEventView.Task.IsStarted)
+                    {
+                        __result = false;
+                        return false;
+                    }
+                    enable = (kingdomEventView.Task.AssignedLeader != null);
+                    if (enable && kingdomEventView.CostInBP > 0)
+                    {
+                        enable = KingdomCurrencyFallback.CanSpend(kingdomEventView.CostInBP);
+                    }
+                    if (enable && !KingdomTimelineManager.CanAdvanceTime())
+                    {
+                        enable = !IsSpendRulerTimeDays(__instance);
+                    }
+                    __result = true;
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    Main.DebugError(ex);
+                    return true;
+                }
+            }
+        }
+        [HarmonyPatch(typeof(KingdomUITexts), "GetProjectCostFormat")]
+        static class KingdomUITexts_GetProjectCostFormat_Patch
+        {
+            static void Postfix(int cost, bool format, ref string __result)
+            {
+                try
+                {
+                    if (!Main.enabled) return;
+                    if (!Main.settings.currencyFallback) return;
+                    if (!KingdomCurrencyFallback.CanSpend(cost)) return;
+                    string costFormat = KingdomCurrencyFallback.costFormat;
+                    string costSplitFormat = KingdomCurrencyFallback.costSplitFormat;
+                    var originalFormat = (!format) ? KingdomUIRoot.Instance.Texts.KingdomProjectStartBPCostStartLabelFormat : KingdomUIRoot.Instance.Texts.KingdomProjectStartBPCostFormat;
+                    Tuple<int, int> costSplit = KingdomCurrencyFallback.SplitCost(cost);
+                    if (costSplit.Item2 == 0)
+                    {
+                        __result = string.Format(costFormat, string.Format(originalFormat, costSplit.Item1));
+                    }
+                    else
+                    {
+                        __result = string.Format(costSplitFormat, string.Format(originalFormat, costSplit.Item1), costSplit.Item2);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Main.DebugError(ex);
+                    return;
+                }
+            }
+        }
         [HarmonyPatch(typeof(KingdomTask), "Start")]
         static class KingdomTask_Start_Patch
         {
+            static FastSetter<KingdomTask, bool> IsStartedSetter;
+            static FastSetter<KingdomTask, int> StartedOnSetter;
+            static FastInvoker<KingdomTask, object> OnTaskChanged;
+            static bool Prepare()
+            {
+                IsStartedSetter = Accessors.CreateSetter<KingdomTask, bool>("IsStarted");
+                StartedOnSetter = Accessors.CreateSetter<KingdomTask, int>("StartedOn");
+                OnTaskChanged = Accessors.CreateInvoker<KingdomTask, object>("OnTaskChanged");
+                return true;
+            }
             static bool Prefix(KingdomTask __instance, bool raiseEvent)
             {
                 try
                 {
                     if (!Main.enabled) return true;
                     if (!Main.settings.currencyFallback) return true;
-                    AccessTools.Property(typeof(KingdomTask), "IsStarted").SetValue(__instance, true);
-                    AccessTools.Property(typeof(KingdomTask), "StartedOn").SetValue(__instance, KingdomState.Instance.CurrentDay);
+                    IsStartedSetter(__instance, true);
+                    StartedOnSetter(__instance, KingdomState.Instance.CurrentDay);
 
                     KingdomCurrencyFallback.SpendPoints(__instance.OneTimeBPCost);
 
                     if (raiseEvent)
                     {
-                        AccessTools.DeclaredMethod(typeof(KingdomTask), "OntaskChanged").Invoke(__instance, new object[] { });
+                        OnTaskChanged(__instance);
                     }
 
                     EventBus.RaiseEvent((IKingdomTaskEventsHandler h) => h.OnTaskStarted(__instance));
 
-                    if(__instance.SkipPlayerTime <= 0)
+                    if (__instance.SkipPlayerTime <= 0)
                     {
                         return false;
                     }
@@ -181,7 +275,8 @@ namespace KingdomResolution
                     new KingdomTimelineManager().UpdateTimeline();
 
                     return false;
-                } catch(Exception ex)
+                }
+                catch (Exception ex)
                 {
                     Main.DebugError(ex);
                     return true;
@@ -207,7 +302,8 @@ namespace KingdomResolution
                     ___m_Build.interactable = canAfford;
 
                     return false;
-                } catch(Exception ex)
+                }
+                catch (Exception ex)
                 {
                     Main.DebugError(ex);
                     return true;
@@ -248,11 +344,41 @@ namespace KingdomResolution
                     {
                         Kingmaker.Game.Instance.Player.Achievements.Unlock(AchievementType.IntensiveDevelopment);
                     }
-                    return false;   
-                } catch(Exception ex)
+                    return false;
+                }
+                catch (Exception ex)
                 {
                     Main.DebugError(ex);
                     return true;
+                }
+            }
+        }
+        [HarmonyPatch(typeof(GlobalMapMessageBox), "FillDialogInfoResource")]
+        static class GlobalMapMessageBox_FillDialogInfoResource_Patch
+        {
+            static void Postfix(TextMeshProUGUI ___m_DescText, GlobalMapLocation ___m_Location,
+                        GameObject ___m_StandartControllers, GameObject ___m_OkControllers)
+            {
+                try
+                {
+                    if (!Main.enabled) return;
+                    if (!Main.settings.currencyFallback) return;
+                    LocationData.ResourceStateType resource = ___m_Location.Data.Resource;
+                    if (resource == ResourceStateType.CantClaimWrongRegion) return;
+                    if (resource != ResourceStateType.CanClaim) return;
+                    if (!KingdomCurrencyFallback.CanSpend(KingdomRoot.Instance.DefaultMapResourceCost)) return;
+                    string resourceCostSplitFormat = KingdomCurrencyFallback.resourceCostSplitFormat;
+                    UITextGlobalMap globalMap = Game.Instance.BlueprintRoot.LocalizedTexts.UserInterfacesText.GlobalMap;
+                    Tuple<int, int> costSplit = KingdomCurrencyFallback.SplitCost(KingdomRoot.Instance.DefaultMapResourceCost);
+                    if (costSplit.Item2 == 0) return;
+                    var bpText = string.Format(resourceCostSplitFormat, costSplit.Item1, costSplit.Item2);
+                    ___m_DescText.text = string.Format(globalMap.ResourceAvailable, bpText, KingdomState.Instance.BP);
+                    ___m_StandartControllers.SetActive(true);
+                    ___m_OkControllers.SetActive(false);
+                }
+                catch (Exception ex)
+                {
+                    Main.DebugError(ex);
                 }
             }
         }
@@ -323,11 +449,20 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(SettlementState), "Build")]
         static class SettlementState_Build_Patch
         {
-            static bool Prefix(SettlementState __instance, ref SettlementBuilding __result, 
+            static FastGetter<SettlementState, BlueprintSettlementBuilding> SellDiscountedBuildingGetter;
+            static FastSetter<SettlementState, BlueprintSettlementBuilding> SellDiscountedBuildingSetter;
+            static bool Prepare()
+            {
+                SellDiscountedBuildingGetter = Accessors.CreateGetter<SettlementState, BlueprintSettlementBuilding>("SellDiscountedBuilding");
+                SellDiscountedBuildingSetter = Accessors.CreateSetter<SettlementState, BlueprintSettlementBuilding>("SellDiscountedBuilding");
+                return true;
+            }
+            static bool Prefix(SettlementState __instance, ref SettlementBuilding __result,
                 BlueprintSettlementBuilding building, SettlementGridTopology.Slot slot, bool force,
                 ref int ___m_SlotsLeft, BuildingsCollection ___m_Buildings)
             {
-                try {
+                try
+                {
                     if (!Main.enabled) return true;
                     if (!Main.settings.currencyFallback) return true;
 
@@ -361,9 +496,9 @@ namespace KingdomResolution
                         ___m_SlotsLeft -= building.SlotCount;
                     }
 
-                    if (!force && !removedBuilding || (BlueprintSettlementBuilding)AccessTools.Property(typeof(SettlementState), "SellDiscountedBuilding").GetValue(__instance) != building)
+                    if (!force && !removedBuilding || SellDiscountedBuildingGetter(__instance) != building)
                     {
-                        AccessTools.Property(typeof(SettlementState), "SellDiscountedBuilding").SetValue(__instance, null);
+                        SellDiscountedBuildingSetter(__instance, null);
                     }
 
                     __instance.Update();
@@ -383,6 +518,12 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(SettlementState), "CanBuild")]
         static class SettlementState_CanBuild_Patch
         {
+            static FastInvoker<SettlementState, BlueprintSettlementBuilding, bool> CanBuildByLevel;
+            static bool Prepare()
+            {
+                CanBuildByLevel = Accessors.CreateInvoker<SettlementState, BlueprintSettlementBuilding, bool>("CanBuildByLevel");
+                return true;
+            }
             static bool Prefix(SettlementState __instance, ref bool __result, BlueprintSettlementBuilding building, int ___m_SlotsLeft)
             {
                 try
@@ -411,7 +552,7 @@ namespace KingdomResolution
                         return false;
                     }
 
-                    __result =  (bool)AccessTools.DeclaredMethod(typeof(SettlementState), "CanBuildByLevel").Invoke(__instance, new object[] { building });
+                    __result = CanBuildByLevel(__instance, building);
                     return false;
                 }
                 catch (Exception ex)
@@ -473,7 +614,8 @@ namespace KingdomResolution
 
                     __result = result;
                     return false;
-                } catch(Exception ex)
+                }
+                catch (Exception ex)
                 {
                     Main.DebugError(ex);
                     return true;
