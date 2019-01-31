@@ -376,6 +376,12 @@ namespace KingdomResolution
         [HarmonyPatch(typeof(GlobalMapRandomEncounterController), "OnRandomEncounterStarted")]
         static class GlobalMapRandomEncounterController_OnRandomEncounterStarted_Patch
         {
+            static Harmony12.AccessTools.FieldRef<GlobalMapRandomEncounterController, TextMeshProUGUI> m_DescriptionRef;
+            static bool Prepare()
+            {
+                m_DescriptionRef = Accessors.CreateFieldRef<GlobalMapRandomEncounterController, TextMeshProUGUI>("m_Description");
+                return true;
+            }
             static void Postfix(GlobalMapRandomEncounterController __instance, ref RandomEncounterData encounter)
             {
                 try
@@ -385,7 +391,7 @@ namespace KingdomResolution
                     {
                         var blueprint = encounter.Blueprint;
                         var text = $"\n<size=70%>Name: {blueprint.name}\nType: {blueprint.Type}\nCR: {encounter.CR}</size>";
-                        Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>().text += text;
+                        m_DescriptionRef(__instance).text += text;
                     }
                 }
                 catch (Exception ex)

@@ -24,6 +24,7 @@ namespace KingdomResolution
         public bool previewAlignmentRestrictedDialog = false;
         public bool previewRandomEncounters = false;
         public bool currencyFallback = false;
+        public int currencyFallbackExchangeRate = 80;
         public BindingKeysData kingdomStashHotkey;
         public override void Save(UnityModManager.ModEntry modEntry)
         {

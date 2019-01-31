@@ -85,7 +85,10 @@
   <ItemGroup>
     <Compile Include="Accessors.cs" />
     <Compile Include="CurrencyFallback.cs" />
+    <Compile Include="GUIHelper.cs" />
+    <Compile Include="KingdomInfo.cs" />
     <Compile Include="KingdomTimeline.cs" />
+    <Compile Include="Labels.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="KingdomStash.cs" />
     <Compile Include="PreviewManager.cs" />

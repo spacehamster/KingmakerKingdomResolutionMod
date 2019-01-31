@@ -44,7 +44,7 @@ namespace KingdomResolution
                 return true;
             }
 
-            int currencyMult = 80; //Math.Max((int)(1f / Main.settings.eventPriceFactor), 1);
+            int currencyMult = Main.settings.currencyFallbackExchangeRate;
 
             return KingdomState.Instance.BP * currencyMult + Kingmaker.Game.Instance.Player.Money - pointCost * currencyMult >= 0;
         }
@@ -61,7 +61,7 @@ namespace KingdomResolution
 
             int pointCostNew = pointCost - Mathf.Abs(pointDebt);
 
-            int goldCost = Mathf.Abs(pointDebt) * 80; //KingmakerPatchSettings.CurrencyFallback.CurrencyMultiplier;
+            int goldCost = Mathf.Abs(pointDebt) * Main.settings.currencyFallbackExchangeRate;
 
             if (!Kingmaker.Game.Instance.Player.SpendMoney(goldCost))
             {
@@ -82,7 +82,7 @@ namespace KingdomResolution
 
             int pointCostNew = pointCost - Mathf.Abs(pointDebt);
 
-            int goldCost = Mathf.Abs(pointDebt) * 80; // KingmakerPatchSettings.CurrencyFallback.CurrencyMultiplier;
+            int goldCost = Mathf.Abs(pointDebt) * Main.settings.currencyFallbackExchangeRate;
 
             return new Tuple<int, int>(pointCostNew, goldCost);
         }

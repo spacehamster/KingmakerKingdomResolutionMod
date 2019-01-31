@@ -7,6 +7,8 @@ using UnityEngine;
 using Kingmaker.Kingdom;
 using Kingmaker.Kingdom.Blueprints;
 using Kingmaker.UI.SettingsUI;
+using Kingmaker.Blueprints;
+
 namespace KingdomResolution
 {
     public class Main
@@ -61,31 +63,35 @@ namespace KingdomResolution
             {
                 string percentFormatter(float value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
                 GUILayout.Label("Kingdom Options", Util.BoldLabel);
-                ChooseFactor("Event Time Factor ", settings.eventTimeFactor, 1, (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
-                ChooseFactor("Project Time Factor ", settings.projectTimeFactor, 1, (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
-                ChooseFactor("Ruler Managed Project Time Factor ", settings.baronTimeFactor, 1, (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
-                ChooseFactor("Event BP Price Factor ", settings.eventPriceFactor, 1,
-                    (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => Math.Round(Math.Round(value, 2) * 100, 0) + " %");
-                settings.easyEvents = GUILayout.Toggle(settings.easyEvents, "Enable Easy Events  ", GUILayout.ExpandWidth(false));
-                settings.alwaysManageKingdom = GUILayout.Toggle(settings.alwaysManageKingdom, "Enable Manage Kingdom Everywhere", GUILayout.ExpandWidth(false));
-                settings.alwaysAdvanceTime = GUILayout.Toggle(settings.alwaysAdvanceTime, "Enable Skip Day/Claim Region Everywhere", GUILayout.ExpandWidth(false));
-                settings.skipPlayerTime = GUILayout.Toggle(settings.skipPlayerTime, "Disable Skip Player Time", GUILayout.ExpandWidth(false));
-                settings.alwaysBaronProcurement = GUILayout.Toggle(settings.alwaysBaronProcurement, "Enable Ruler Procure Rations Everywhere (DLC Only)", GUILayout.ExpandWidth(false));
-                settings.overrideIgnoreEvents = GUILayout.Toggle(settings.overrideIgnoreEvents, "Disable End of Month Failed Events", GUILayout.ExpandWidth(false));
-                settings.disableAutoAssignLeaders = GUILayout.Toggle(settings.disableAutoAssignLeaders, "Disable Auto Assign Leaders", GUILayout.ExpandWidth(false));
-                settings.currencyFallback = GUILayout.Toggle(settings.currencyFallback, "Enable Currency Fallback", GUILayout.ExpandWidth(false));
+                GUIHelper.ChooseFactor(Labels.EventTimeFactorLabel, Labels.EventTimeFactorTooltip, settings.eventTimeFactor, 1, 
+                    (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                GUIHelper.ChooseFactor(Labels.ProjectTimeFactorLabel, Labels.ProjectTimeFactorTooltip, settings.projectTimeFactor, 1, 
+                    (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                GUIHelper.ChooseFactor(Labels.RulerTimeFactorLabel, Labels.RulerTimeFactorTooltip, settings.baronTimeFactor, 1, 
+                    (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
+                GUIHelper.ChooseFactor(Labels.EventPriceFactorLabel, Labels.EventPriceFactorTooltip, settings.eventPriceFactor, 1,
+                    (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => " " + Math.Round(Math.Round(value, 2) * 100, 0) + " %");
+                GUIHelper.Toggle(ref settings.easyEvents, Labels.EasyEventsLabel, Labels.EasyEventsTooltip);
+                GUIHelper.Toggle(ref settings.alwaysManageKingdom, Labels.AlwaysManageKingdomLabel, Labels.AlwaysManageKingdomTooltip);
+                GUIHelper.Toggle(ref settings.alwaysAdvanceTime, Labels.AlwaysAdvanceTimeLabel, Labels.AlwaysAdvanceTimeTooltip);
+                GUIHelper.Toggle(ref settings.skipPlayerTime, Labels.SkipPlayerTimeLabel, Labels.SkipPlayerTimeTooltip);
+                GUIHelper.Toggle(ref settings.skipPlayerTime, Labels.AlwaysBaronProcurementLabel, Labels.AlwaysBaronProcurementTooltip);
+                GUIHelper.Toggle(ref settings.overrideIgnoreEvents, Labels.OverrideIgnoreEventsLabel, Labels.OverrideIgnoreEventsTooltip);
+                GUIHelper.Toggle(ref settings.disableAutoAssignLeaders, Labels.DisableAutoAssignLeadersLabel, Labels.DisableAutoAssignLeadersTooltip);
+                GUIHelper.Toggle(ref settings.currencyFallback, Labels.CurrencyFallbackLabel, Labels.CurrencyFallbackTooltip);
+                GUIHelper.ChooseInt(ref settings.currencyFallbackExchangeRate, Labels.CurrencyFallbackExchangeRateLabel, Labels.CurrencyFallbackExchangeRateTooltip);
                 GUILayout.BeginHorizontal();
-                settings.pauseKingdomTimeline = GUILayout.Toggle(settings.pauseKingdomTimeline, "Pause Kingdom Timeline  ", GUILayout.ExpandWidth(false));
+                GUIHelper.Toggle(ref settings.pauseKingdomTimeline, Labels.PauseKingdomTimelineLabel, Labels.PauseKingdomTimelineTooltip);
                 if (settings.pauseKingdomTimeline)
                 {
-                    settings.enablePausedKingdomManagement = GUILayout.Toggle(settings.enablePausedKingdomManagement, "Enable Paused Kingdom Management  ", GUILayout.ExpandWidth(false));
+                    GUIHelper.Toggle(ref settings.enablePausedKingdomManagement, Labels.EnablePausedKingdomManagementLabel, Labels.EnablePausedKingdomManagementTooltip);
                     if (settings.enablePausedKingdomManagement)
                     {
-                        settings.enablePausedRandomEvents = GUILayout.Toggle(settings.enablePausedRandomEvents, "Enable Paused Random Events  ", GUILayout.ExpandWidth(false));
+                        GUIHelper.Toggle(ref settings.enablePausedRandomEvents, Labels.EnablePausedRandomEventsLabel, Labels.EnablePausedRandomEventsTooltip);
                     }
                 }
                 GUILayout.EndHorizontal();
-                if (SettingsRoot.Instance.KingdomManagementMode.CurrentValue == KingdomDifficulty.Auto)
+                if (ResourcesLibrary.LibraryObject != null && SettingsRoot.Instance.KingdomManagementMode.CurrentValue == KingdomDifficulty.Auto)
                 {
                     if (GUILayout.Button("Disable Auto Kingdom Management Mode"))
                     {
@@ -95,15 +101,14 @@ namespace KingdomResolution
                 }
                 ChooseKingdomUnreset();
                 GUILayout.Label("Preview Options", Util.BoldLabel);
-                settings.previewEventResults = GUILayout.Toggle(settings.previewEventResults, "Preview Event Results", GUILayout.ExpandWidth(false));
-                settings.previewDialogResults = GUILayout.Toggle(settings.previewDialogResults, "Preview Dialog Results", GUILayout.ExpandWidth(false));
-                settings.previewAlignmentRestrictedDialog = GUILayout.Toggle(settings.previewAlignmentRestrictedDialog, "Preview Alignment Restricted Dialog", GUILayout.ExpandWidth(false));
-                settings.previewRandomEncounters = GUILayout.Toggle(settings.previewRandomEncounters, "Preview Random Encounters ", GUILayout.ExpandWidth(false));
+                GUIHelper.Toggle(ref settings.previewEventResults, Labels.PreviewEventResultsLabel, Labels.PreviewEventResultsTooltip);
+                GUIHelper.Toggle(ref settings.previewDialogResults, Labels.PreviewDialogResultsLabel, Labels.PreviewDialogResultsTooltip);
+                GUIHelper.Toggle(ref settings.previewAlignmentRestrictedDialog, Labels.PreviewAlignmentRestrictedDialogLabel, Labels.PreviewAlignmentRestrictedDialogTooltip);
+                GUIHelper.Toggle(ref settings.previewRandomEncounters, Labels.PreviewRandomEncountersLabel, Labels.PreviewRandomEncountersTooltip);
                 GUILayout.Label("Misc Options", Util.BoldLabel);
                 KingdomStash.OnGUI();
-                KingdomTimeline.OnGUI();
-
-
+                KingdomInfo.OnGUI();
+                GUIHelper.ShowTooltip();
             }
             catch (Exception ex)
             {
@@ -130,18 +135,6 @@ namespace KingdomResolution
                 instance.SetUnrest(instance.Unrest + 1, KingdomStatusChangeReason.None, modId);
             }
             GUILayout.EndHorizontal();
-        }
-        static void ChooseFactor(string label, float value, float maxValue, Action<float> setter, Func<float, string> formatter)
-        {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, GUILayout.Width(300));
-            var newValue = GUILayout.HorizontalSlider(value, 0, maxValue, GUILayout.Width(300));
-            GUILayout.Label(formatter(newValue));
-            GUILayout.EndHorizontal();
-            if (newValue != value)
-            {
-                setter(newValue);
-            }
         }
         /*
          * Type of KingdomTask, Manages KingdomEvent

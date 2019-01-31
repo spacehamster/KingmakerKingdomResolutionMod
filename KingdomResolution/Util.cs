@@ -4,6 +4,8 @@ using System.Linq;
 using Harmony12;
 using System.Collections.Generic;
 using UnityEngine;
+using Kingmaker.Kingdom.Blueprints;
+using Kingmaker.Blueprints;
 
 namespace KingdomResolution
 {
@@ -99,6 +101,19 @@ namespace KingdomResolution
         public static string FormatConditions(ConditionsChecker conditions)
         {
             return FormatConditions(conditions.Conditions);
+        }
+        public static bool CausesGameOver(BlueprintKingdomEventBase blueprint)
+        {
+            var results = blueprint.GetComponent<EventFinalResults>();
+            if (results == null) return false;
+            foreach (var result in results.Results)
+            {
+                foreach (var action in result.Actions.Actions)
+                {
+                    if (action is GameOver) return true;
+                }
+            }
+            return false;
         }
     }
 }
