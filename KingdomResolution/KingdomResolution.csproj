@@ -86,6 +86,7 @@
     <Compile Include="Accessors.cs" />
     <Compile Include="CurrencyFallback.cs" />
     <Compile Include="GUIHelper.cs" />
+    <Compile Include="HighlightObjectToggle.cs" />
     <Compile Include="KingdomInfo.cs" />
     <Compile Include="KingdomTimeline.cs" />
     <Compile Include="Labels.cs" />
