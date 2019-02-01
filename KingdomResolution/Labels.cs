@@ -23,7 +23,8 @@ namespace KingdomResolution
         public static string AlwaysAdvanceTimeLabel = "Enable Skip Day/Claim Region Everywhere";
         public static string AlwaysAdvanceTimeTooltip = "Enable the ability to claim regions and skip one day from the kingdom management screen while outside of a settlement.";
         public static string SkipPlayerTimeLabel = "Disable Skip Player Time";
-        public static string SkipPlayerTimeTooltip = "Prevents the game from auto-advancing time the instant you start a project requiring player assistance (claim territory or advance an adviser/realm skill).";
+        public static string SkipPlayerTimeTooltip = "Prevents the game from auto-advancing time the instant you start a project requiring player assistance\n " +
+                                                     "(claim territory or advance an adviser/realm skill).";
         public static string AlwaysBaronProcurementLabel = "Enable Ruler Procure Rations Everywhere (DLC Only)";
         public static string AlwaysBaronProcurementTooltip = "Enables the player to use their special camping ability to procure rations even while outside of the player's territory or in a dungeon.";
         public static string OverrideIgnoreEventsLabel = "Disable End of Month Failed Events";
@@ -35,18 +36,24 @@ namespace KingdomResolution
         public static string CurrencyFallbackExchangeRateLabel = "Currency Fallback Exchange Rate";
         public static string CurrencyFallbackExchangeRateTooltip = "Exchange rate for purching BP with gold (default 80 gold per BP)";
         public static string PauseKingdomTimelineLabel = "Pause Kingdom Timeline";
-        public static string PauseKingdomTimelineTooltip = "Prevents kingdom timeline events. kingdom events, kingdom projects, kingdom buffs, building settlements, artisans, BP gain from progressing. Does not effect timed quests, or other instances of game time. Works by increasing the kingdom founding day by one every day.";
+        public static string PauseKingdomTimelineTooltip = "Prevents kingdom timeline events. kingdom events, kingdom projects, kingdom buffs, building settlements, artisans, \n" +
+                                                           "BP gain from progressing. Does not effect timed quests, or other instances of game time. Works by increasing the \n" +
+                                                           "kingdom founding day by one every day.";
         public static string EnablePausedKingdomManagementLabel = "Enable Paused Kingdom Management";
         public static string EnablePausedKingdomManagementTooltip = "Allows kingdom tasks, kingdom events, kingdom projects, artisans, kingdom buffs, building settlements, artisans, weekly BP gain to progress normally while preventing kingdom timeline events from starting.";
         public static string EnablePausedRandomEventsLabel = "Enable Paused Random Events";
         public static string EnablePausedRandomEventsTooltip = "Every month, a set of random kingdom events are schedules to begin at random intervals across the month.Enable Paused Random Events allows these random events to occur while the kingdom timeline is paused.";
         public static string PreviewEventResultsLabel = "Preview Event Results";
-        public static string PreviewEventResultsTooltip = "Shows the final stat gains associated with an event. Event results are based on the leader type and leader alignment selected. The Best Result preview only takes into account stat gains and not BP bonuses. Does not show action triggers associated with event results";
+        public static string PreviewEventResultsTooltip = "Shows the final stat gains associated with an event. Event results are based on the leader type and leader alignment selected. \n" + 
+                                                           "The best result preview only takes into account stat gains and not BP bonuses. Does not show action triggers associated with event results";
         public static string PreviewDialogResultsLabel = "Preview Dialog Results";
         public static string PreviewDialogResultsTooltip = "Preview actions that will trigger as a result of a dialog choice below the option";
         public static string PreviewAlignmentRestrictedDialogLabel = "Preview Alignment Restricted Dialog";
         public static string PreviewAlignmentRestrictedDialogTooltip = "Preview dialog options text that are normally hidden by \"Specific alignment required\" message.";
         public static string PreviewRandomEncountersLabel = "Preview Random Encounters";
         public static string PreviewRandomEncountersTooltip = "Shows Random Encounter name, type and challenge rating in the random encounter popup on the global map.";
+        public static string HighlightObjectToggleLabel = "Highlight Object Toggle";
+        public static string HighLightObjectToggleTooltip = "Pressing the Tab key will toggle object highlighting on/off until the key is pressed again. \n" +
+                                                            "Highlighting will automatically toggle off during combat and area transitions.";
     }
 }

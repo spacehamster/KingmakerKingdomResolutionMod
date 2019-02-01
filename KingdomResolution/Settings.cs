@@ -27,7 +27,6 @@ namespace KingdomResolution
         public int currencyFallbackExchangeRate = 80;
         public BindingKeysData kingdomStashHotkey;
         public bool highlightObjectsToggle;
-        public int secondsBetweenTickGameTime;
 
         public override void Save(UnityModManager.ModEntry modEntry)
         {

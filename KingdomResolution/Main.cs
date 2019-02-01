@@ -106,7 +106,7 @@ namespace KingdomResolution
                 GUIHelper.Toggle(ref settings.previewAlignmentRestrictedDialog, Labels.PreviewAlignmentRestrictedDialogLabel, Labels.PreviewAlignmentRestrictedDialogTooltip);
                 GUIHelper.Toggle(ref settings.previewRandomEncounters, Labels.PreviewRandomEncountersLabel, Labels.PreviewRandomEncountersTooltip);
                 GUILayout.Label("Misc Options", Util.BoldLabel);
-                GUIHelper.Toggle(ref settings.highlightObjectsToggle, "Highlight Objects Toggle");
+                GUIHelper.Toggle(ref settings.highlightObjectsToggle, Labels.HighlightObjectToggleLabel, Labels.HighLightObjectToggleTooltip);
                 KingdomStash.OnGUI();
                 KingdomInfo.OnGUI();
                 GUIHelper.ShowTooltip();
