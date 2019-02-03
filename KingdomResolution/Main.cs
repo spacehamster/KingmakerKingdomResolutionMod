@@ -75,7 +75,7 @@ namespace KingdomResolution
                 GUIHelper.Toggle(ref settings.alwaysManageKingdom, Labels.AlwaysManageKingdomLabel, Labels.AlwaysManageKingdomTooltip);
                 GUIHelper.Toggle(ref settings.alwaysAdvanceTime, Labels.AlwaysAdvanceTimeLabel, Labels.AlwaysAdvanceTimeTooltip);
                 GUIHelper.Toggle(ref settings.skipPlayerTime, Labels.SkipPlayerTimeLabel, Labels.SkipPlayerTimeTooltip);
-                GUIHelper.Toggle(ref settings.skipPlayerTime, Labels.AlwaysBaronProcurementLabel, Labels.AlwaysBaronProcurementTooltip);
+                GUIHelper.Toggle(ref settings.alwaysBaronProcurement, Labels.AlwaysBaronProcurementLabel, Labels.AlwaysBaronProcurementTooltip);
                 GUIHelper.Toggle(ref settings.overrideIgnoreEvents, Labels.OverrideIgnoreEventsLabel, Labels.OverrideIgnoreEventsTooltip);
                 GUIHelper.Toggle(ref settings.disableAutoAssignLeaders, Labels.DisableAutoAssignLeadersLabel, Labels.DisableAutoAssignLeadersTooltip);
                 GUIHelper.Toggle(ref settings.currencyFallback, Labels.CurrencyFallbackLabel, Labels.CurrencyFallbackTooltip);

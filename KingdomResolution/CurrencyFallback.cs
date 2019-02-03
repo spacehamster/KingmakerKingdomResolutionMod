@@ -101,7 +101,7 @@ namespace KingdomResolution
                 return TargetType().GetMethod("Initialize");
             }
             static bool Prefix(object __instance, BlueprintSettlementBuilding building, SettlementBuilding settlementBuilding, SettlementState settlement,
-                    ref Image ___Slots, ref TextMeshProUGUI ___Cost, ref Image ___DiscountLayer)
+                    Image ___Slots, TextMeshProUGUI ___Cost, Image ___DiscountLayer)
             {
                 try
                 {
@@ -116,7 +116,7 @@ namespace KingdomResolution
                     if (settlementBuilding == null)
                     {
                         int actualCost = settlement.GetActualCost(building, out bool isDiscounted);
-                        ___DiscountLayer.gameObject.SetActive(actualCost == 0 || isDiscounted);
+                        ___DiscountLayer?.gameObject?.SetActive(actualCost == 0 || isDiscounted);
 
                         if (actualCost == 0)
                         {
@@ -140,7 +140,13 @@ namespace KingdomResolution
                     }
                     else
                     {
-                        ___DiscountLayer.gameObject.SetActive(false);
+                        try
+                        {
+                            ___DiscountLayer.gameObject.SetActive(false);
+                        }
+                        catch (NullReferenceException) {
+                            //accessing ___DiscountLayer.gameObject after the gameObject has been destroyed causes the getter to throw an exception
+                        }
                         ___Cost.text = string.Format(costFormat, string.Format(KingdomUIRoot.Instance.Texts.BuildPointsFormat, settlementBuilding.Owner.GetSellPrice(building)));
                     }
 
