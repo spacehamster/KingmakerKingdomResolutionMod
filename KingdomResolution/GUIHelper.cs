@@ -87,10 +87,13 @@ namespace KingdomResolution
                 {
                     background.SetPixels32(new Color32[] { new Color32(0, 0, 0, 0) });
                 }
-                var rect = new Rect(Input.mousePosition.x - ummRect.min.x + ummScrollPosition[ummTabId].x - 8,
-                    Screen.height - ummRect.min.y + ummScrollPosition[ummTabId].y - Input.mousePosition.y - 65 - textHeight,
-                    tooltipSize.x, tooltipSize.y);
-                GUI.Label(rect, GUI.tooltip, styleTooltip);
+                float rectX = Input.mousePosition.x - ummRect.min.x + ummScrollPosition[ummTabId].x - 8;
+                if (rectX > 470)
+                {
+                    rectX = rectX - tooltipSize.x + 8;
+                }
+                float rectY = Screen.height - ummRect.min.y + ummScrollPosition[ummTabId].y - Input.mousePosition.y - 65 - textHeight;
+                GUI.Label(new Rect(rectX, rectY, tooltipSize.x, tooltipSize.y), GUI.tooltip, styleTooltip);
         }
 
         internal static void Toggle(ref bool enablePausedRandomEvents, object enablePausedRandomEventsLabel)
