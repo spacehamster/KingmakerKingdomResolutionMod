@@ -234,7 +234,7 @@ namespace KingdomResolution
         public static void ShowHistoryEntry(KingdomEventHistoryEntry eventHistory)
         {
             GUILayout.Label($"TriggeredOn: {eventHistory.TriggeredOn}");
-            GUILayout.Label($"Solver: {eventHistory.Solver?.LocalizedName.ToString() ?? "None"}");
+            GUILayout.Label($"Solver: {eventHistory.Solver?.CharacterName.ToString() ?? "None"}");
             GUILayout.Label($"SolverLeader: {eventHistory.SolverLeader}");
             GUILayout.Label($"SolutionCheck: {eventHistory.SolutionCheck}");
             GUILayout.Label($"SolvedInDays: {eventHistory.SolvedInDays}");
