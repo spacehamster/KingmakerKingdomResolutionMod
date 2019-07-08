@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using Harmony12;
 using Kingmaker;
 using Kingmaker.Controllers;
 using Kingmaker.Controllers.MapObjects;
@@ -17,8 +18,26 @@ using static Kingmaker.UI.KeyboardAccess;
 
 namespace KingdomResolution
 {
-    class HighlightObjectToggle
+    public class HighlightObjectToggle
     {
+        public static void ApplyPatch(HarmonyInstance harmony){
+            /*
+             * There is a bug in the linux version that causes the game to crash to desktop when 
+             * InteractionHighlightController.Tick is called. Work around is to disable HighlightObjectToggle feature
+             * on linux
+             */
+            if (Application.platform == RuntimePlatform.LinuxPlayer) return;
+            var controllerType = typeof(InteractionHighlightController);
+            var highlightOn = AccessTools.Method(controllerType, "HighlightOn");
+            var highlightOff = AccessTools.Method(controllerType, "HighlightOff");
+            var highlightTick = AccessTools.Method(controllerType, "Tick");
+            harmony.Patch(highlightOn, 
+                prefix: new HarmonyMethod(typeof(InteractionHighlightController_Activate_Patch), "Prefix"));
+            harmony.Patch(highlightOn,
+                prefix: new HarmonyMethod(typeof(InteractionHighlightController_Deactivate_Patch), "Prefix"));
+            harmony.Patch(highlightOn,
+                postfix: new HarmonyMethod(typeof(InteractionHighlightController_Tick_Patch), "Postfix"));
+        }
         private static void UpdateHighlights(bool raiseEvent = false)
         {
             foreach (MapObjectEntityData mapObjectEntityData in Game.Instance.State.MapObjects)
@@ -32,7 +51,7 @@ namespace KingdomResolution
             }
         }
         static TimeSpan m_LastTickTime;
-        [Harmony12.HarmonyPatch(typeof(InteractionHighlightController), "HighlightOn")]
+        //[HarmonyPatch(typeof(InteractionHighlightController), "HighlightOn")]
         class InteractionHighlightController_Activate_Patch
         {
 
@@ -69,7 +88,7 @@ namespace KingdomResolution
                 return true;
             }
         }
-        [Harmony12.HarmonyPatch(typeof(InteractionHighlightController), "HighlightOff")]
+        //[HarmonyPatch(typeof(InteractionHighlightController), "HighlightOff")]
         class InteractionHighlightController_Deactivate_Patch
         {
             static bool Prefix(InteractionHighlightController __instance)
@@ -88,6 +107,7 @@ namespace KingdomResolution
                 return true;
             }
         }
+        //[HarmonyPatch(typeof(InteractionHighlightController), "Tick")]
         [Harmony12.HarmonyPatch(typeof(InteractionHighlightController), "Tick")]
         class InteractionHighlightController_Tick_Patch
         {

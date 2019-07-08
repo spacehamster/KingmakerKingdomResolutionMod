@@ -35,6 +35,7 @@ namespace KingdomResolution
                 settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
                 var harmony = HarmonyInstance.Create(modEntry.Info.Id);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
+                HighlightObjectToggle.ApplyPatch(harmony);
                 modEntry.OnToggle = OnToggle;
                 modEntry.OnGUI = OnGUI;
                 modEntry.OnSaveGUI = OnSaveGUI;

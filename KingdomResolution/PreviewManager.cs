@@ -41,7 +41,7 @@ namespace KingdomResolution
                 result.Accumulate(m_TriggerChange.Opposite(), 1);
             }
             var resolutions = kingdomEvent.EventBlueprint.Solutions.GetResolutions(leaderType);
-            if (resolutions == null) resolutions = Array.Empty<EventResult>();
+            if (resolutions == null) resolutions = new EventResult[] { };
             foreach (var eventResult in resolutions)
             {
                 var validConditions = eventResult.Condition == null || eventResult.Condition.Check(kingdomEvent.EventBlueprint);
