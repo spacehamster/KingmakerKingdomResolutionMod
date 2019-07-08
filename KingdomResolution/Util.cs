@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Kingmaker.Kingdom.Blueprints;
 using Kingmaker.Blueprints;
+using System.Diagnostics;
+using System;
 
 namespace KingdomResolution
 {
@@ -114,6 +116,22 @@ namespace KingdomResolution
                 }
             }
             return false;
+        }
+        public class CodeTimer : IDisposable
+        {
+            private readonly Stopwatch m_Stopwatch;
+            private readonly string m_Text;
+            public CodeTimer(string text)
+            {
+                this.m_Text = text;
+                this.m_Stopwatch = Stopwatch.StartNew();
+            }
+            public void Dispose()
+            {
+                this.m_Stopwatch.Stop();
+                string message = string.Format("Profiled {0}: {1:0.00}ms", this.m_Text, this.m_Stopwatch.ElapsedMilliseconds);
+                Main.DebugLog(message);
+            }
         }
     }
 }

@@ -55,5 +55,7 @@ namespace KingdomResolution
         public static string HighlightObjectToggleLabel = "Highlight Object Toggle";
         public static string HighLightObjectToggleTooltip = "Pressing the Tab key will toggle object highlighting on/off until the key is pressed again. \n" +
                                                             "Highlighting will automatically toggle off during combat and area transitions.";
+        public static string DisableMercenaryPenaltyLabel = "Disable Mercenary Penalty";
+        public static string DisableMercenaryPenaltyTooltip = "Removes the -4 penalty mercenary advisors recieve";
     }
 }

@@ -3,7 +3,7 @@
   "DisplayName": "Kingdom Resolution",
   "Author": "spacehamster",
   "Version": "1.7.1",
-  "ManagerVersion": "0.13.0",
+  "ManagerVersion": "0.14.1",
   "Requirements": [],
   "AssemblyName": "KingdomResolution.dll",
   "EntryMethod": "KingdomResolution.Main.Load",

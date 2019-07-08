@@ -2,15 +2,18 @@
 using UnityModManagerNet;
 using System;
 using System.Reflection;
-using Kingmaker.Kingdom.Tasks;
 using UnityEngine;
 using Kingmaker.Kingdom;
-using Kingmaker.Kingdom.Blueprints;
+using System.Linq;
 using Kingmaker.UI.SettingsUI;
 using Kingmaker.Blueprints;
+using Kingmaker.UI.Tooltip;
 
 namespace KingdomResolution
 {
+#if DEBUG
+    [EnableReloading]
+#endif
     public class Main
     {
         public static UnityModManagerNet.UnityModManager.ModEntry.ModLogger logger;
@@ -26,6 +29,7 @@ namespace KingdomResolution
         public static bool enabled;
         public static Settings settings;
         static string modId;
+        static int SavedCustomLeaderPenalty;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
@@ -35,15 +39,66 @@ namespace KingdomResolution
                 settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
                 var harmony = HarmonyInstance.Create(modEntry.Info.Id);
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
-                HighlightObjectToggle.ApplyPatch(harmony);
                 modEntry.OnToggle = OnToggle;
                 modEntry.OnGUI = OnGUI;
                 modEntry.OnSaveGUI = OnSaveGUI;
+#if DEBUG
+                modEntry.OnUnload = Unload;
+#endif
                 KingdomStash.Init();
-            } catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 DebugError(ex);
-                throw ex;   
+                throw ex;
+            }
+            return true;
+        }
+        static void UnpatchAll(UnityModManager.ModEntry modEntry)
+        {
+            using (var codeTimer = new Util.CodeTimer("Unpatched1 KingdomResolution"))
+            {
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                var patches = harmony
+                    .GetPatchedMethods()
+                    .ToList();
+                foreach (var method in patches)
+                {
+                    //When unpatching with prefix+postfix handlers that use __state has a bug where you need to unpatch the postfix first or else you get an error in 1.2.0.1
+                    harmony.Unpatch(method, HarmonyPatchType.Postfix, modEntry.Info.Id);
+                    harmony.Unpatch(method, HarmonyPatchType.Prefix, modEntry.Info.Id);
+                    harmony.Unpatch(method, HarmonyPatchType.Transpiler, modEntry.Info.Id);
+                }
+            }
+        }
+        static void UnpatchAll2(UnityModManager.ModEntry modEntry)
+        {
+            using (var codeTimer = new Util.CodeTimer("Unpatched2 KingdomResolution"))
+            {
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                //When unpatching with prefix+postfix handlers that use __state has a bug where you need to unpatch the postfix first or else you get an error in 1.2.0.1
+                var method = AccessTools.Method(typeof(DescriptionTemplatesKingdom), "KingdomLeaderStatDescription",
+                    new Type[] { typeof(LeaderState), typeof(LeaderState.Leader), typeof(DescriptionBricksBox) });
+                harmony.Unpatch(method, HarmonyPatchType.Postfix, modEntry.Info.Id);
+                harmony.UnpatchAll(modEntry.Info.Id);
+            }
+        }
+        static bool Unload(UnityModManager.ModEntry modEntry)
+        {
+            try
+            {
+                UnpatchAll2(modEntry);
+            }
+            catch (Exception ex)
+            {
+                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
+                var _patches = harmony.GetPatchedMethods()
+                    .Where(method => harmony.GetPatchInfo(method).Owners.Contains(modEntry.Info.Id))
+                    .ToList();
+                if (_patches.Count > 0)
+                {
+                    throw new Exception($"Failed to unpatch methods {_patches.Count}", ex);
+                }
             }
             return true;
         }
@@ -56,6 +111,7 @@ namespace KingdomResolution
         static void OnSaveGUI(UnityModManager.ModEntry modEntry)
         {
             settings.Save(modEntry);
+
         }
         static void OnGUI(UnityModManager.ModEntry modEntry)
         {
@@ -64,11 +120,11 @@ namespace KingdomResolution
             {
                 string percentFormatter(float value) => Math.Round(value * 100, 0) == 0 ? " 1 day" : Math.Round(value * 100, 0) + " %";
                 GUILayout.Label("Kingdom Options", Util.BoldLabel);
-                GUIHelper.ChooseFactor(Labels.EventTimeFactorLabel, Labels.EventTimeFactorTooltip, settings.eventTimeFactor, 1, 
+                GUIHelper.ChooseFactor(Labels.EventTimeFactorLabel, Labels.EventTimeFactorTooltip, settings.eventTimeFactor, 1,
                     (value) => settings.eventTimeFactor = (float)Math.Round(value, 2), percentFormatter);
-                GUIHelper.ChooseFactor(Labels.ProjectTimeFactorLabel, Labels.ProjectTimeFactorTooltip, settings.projectTimeFactor, 1, 
+                GUIHelper.ChooseFactor(Labels.ProjectTimeFactorLabel, Labels.ProjectTimeFactorTooltip, settings.projectTimeFactor, 1,
                     (value) => settings.projectTimeFactor = (float)Math.Round(value, 2), percentFormatter);
-                GUIHelper.ChooseFactor(Labels.RulerTimeFactorLabel, Labels.RulerTimeFactorTooltip, settings.baronTimeFactor, 1, 
+                GUIHelper.ChooseFactor(Labels.RulerTimeFactorLabel, Labels.RulerTimeFactorTooltip, settings.baronTimeFactor, 1,
                     (value) => settings.baronTimeFactor = (float)Math.Round(value, 2), percentFormatter);
                 GUIHelper.ChooseFactor(Labels.EventPriceFactorLabel, Labels.EventPriceFactorTooltip, settings.eventPriceFactor, 1,
                     (value) => settings.eventPriceFactor = (float)Math.Round(value, 2), (value) => " " + Math.Round(Math.Round(value, 2) * 100, 0) + " %");
@@ -79,6 +135,7 @@ namespace KingdomResolution
                 GUIHelper.Toggle(ref settings.alwaysBaronProcurement, Labels.AlwaysBaronProcurementLabel, Labels.AlwaysBaronProcurementTooltip);
                 GUIHelper.Toggle(ref settings.overrideIgnoreEvents, Labels.OverrideIgnoreEventsLabel, Labels.OverrideIgnoreEventsTooltip);
                 GUIHelper.Toggle(ref settings.disableAutoAssignLeaders, Labels.DisableAutoAssignLeadersLabel, Labels.DisableAutoAssignLeadersTooltip);
+                GUIHelper.Toggle(ref settings.disableMercenaryPenalty, Labels.DisableMercenaryPenaltyLabel, Labels.DisableMercenaryPenaltyTooltip);
                 GUIHelper.Toggle(ref settings.currencyFallback, Labels.CurrencyFallbackLabel, Labels.CurrencyFallbackTooltip);
                 GUIHelper.ChooseInt(ref settings.currencyFallbackExchangeRate, Labels.CurrencyFallbackExchangeRateLabel, Labels.CurrencyFallbackExchangeRateTooltip);
                 GUILayout.BeginHorizontal();
@@ -127,7 +184,8 @@ namespace KingdomResolution
             GUILayout.Label("Kingdom Unrest: " + kingdomUnrestName, GUILayout.Width(300));
             if (GUILayout.Button("More Unrest"))
             {
-                if (instance.Unrest != KingdomStatusType.Crumbling) {
+                if (instance.Unrest != KingdomStatusType.Crumbling)
+                {
                     instance.SetUnrest(instance.Unrest - 1, KingdomStatusChangeReason.None, modId);
                 }
             }
@@ -137,178 +195,6 @@ namespace KingdomResolution
                 instance.SetUnrest(instance.Unrest + 1, KingdomStatusChangeReason.None, modId);
             }
             GUILayout.EndHorizontal();
-        }
-        /*
-         * Type of KingdomTask, Manages KingdomEvent
-         */
-        [HarmonyPatch(typeof(KingdomTaskEvent), "SkipPlayerTime", MethodType.Getter)]
-        static class KingdomTaskEvent_SkipPlayerTime_Patch
-        {
-            static void Postfix(ref int __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    if (__result < 1) return;
-                    if (settings.skipPlayerTime)
-                    {
-                        __result = 0;
-                    }
-                    else
-                    {
-                        __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
-                        __result = __result < 1 ? 1 : __result;
-                    }
-                } catch(Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        /*
-         * Represents BlueprintKingdomEventBase
-         * BlueprintKingdomEventBase has Concrete Types BlueprintKingdomEvent, BlueprintKingdomProject and BlueprintKingdomClaim
-         */
-        [HarmonyPatch(typeof(KingdomEvent), "CalculateResolutionTime")]
-        static class KingdomEvent_CalculateResolutionTime_Patch
-        {
-            static void Postfix(KingdomEvent __instance, ref int __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    if (__instance.EventBlueprint.IsResolveByBaron) return;
-                    if (__instance.EventBlueprint is BlueprintKingdomEvent)
-                    {
-                        __result = Mathf.RoundToInt(__result * settings.eventTimeFactor);
-                        __result = __result < 1 ? 1 : __result;
-                    }
-                    var projectBlueprint = __instance.EventBlueprint as BlueprintKingdomProject;
-                    if (projectBlueprint != null && projectBlueprint.SpendRulerTimeDays > 0)
-                    {
-                        __result = Mathf.RoundToInt(__result * settings.baronTimeFactor);
-                        __result = __result < 1 ? 1 : __result;
-                    }
-                    if (projectBlueprint != null && projectBlueprint.SpendRulerTimeDays <= 0)
-                    {
-                        __result = Mathf.RoundToInt(__result * settings.projectTimeFactor);
-                        __result = __result < 1 ? 1 : __result;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomEvent), "CalculateBPCost")]
-        static class KingdomEvent_CalculateBPCost_Patch
-        {
-            static void Postfix(KingdomEvent __instance, ref int __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    __result = Mathf.RoundToInt(__result * settings.eventPriceFactor);
-                } catch(Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomTaskEvent), "GetDC")]
-        static class KingdomTaskEvent_GetDC_Patch
-        {
-            static void Postfix(ref int __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    if (!settings.easyEvents) return;
-                    __result = -100;
-                } catch(Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomState), "CanSeeKingdomFromGlobalMap", MethodType.Getter)]
-        static class KingdomState_CanSeeKingdomFromGlobalMap_Patch
-        {
-            static void Postfix(ref bool __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    if (!settings.alwaysManageKingdom) return;
-                    __result = true;
-                }
-                catch (Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomTimelineManager), "CanAdvanceTime")]
-        static class KingdomTimelineManager_CanAdvanceTime_Patch
-        {
-            static void Postfix(ref bool __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    if (!settings.alwaysAdvanceTime) return;
-                    __result = true;
-                }
-                catch (Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomState), "PartyIsInKingdomBorders", MethodType.Getter)]
-        static class KingdomState_PartyIsInKingdomBorders_Patch
-        {
-            static void Postfix(ref bool __result)
-            {
-                try
-                {
-                    if (!enabled) return;
-                    if (!settings.alwaysBaronProcurement) return;
-                    __result = true;
-                }
-                catch (Exception ex)
-                {
-                    DebugError(ex);
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomTimelineManager), "FailIgnoredEvents")]
-        static class KingdomTimelineManager_FailIgnoredEvents_Patch
-        {
-            static bool Prefix()
-            {
-                try
-                {
-                    if (!enabled) return true;
-                    if (!settings.overrideIgnoreEvents) return true;
-                    return false;
-                } catch(Exception ex)
-                {
-                    DebugError(ex);
-                    return true;
-                }
-            }
-        }
-        [HarmonyPatch(typeof(KingdomTimelineManager), "AutoAssignLeaders")]
-        static class KingdomTimelineManager_AutoAssignLeaders_Patch
-        {
-            static bool Prefix()
-            {
-                if (!enabled) return true;
-                if (!settings.disableAutoAssignLeaders) return true;
-                return false;
-            }
         }
     }
 }

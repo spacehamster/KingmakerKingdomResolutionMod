@@ -23,6 +23,7 @@ namespace KingdomResolution
         public bool previewDialogResults = false;
         public bool previewAlignmentRestrictedDialog = false;
         public bool previewRandomEncounters = false;
+        public bool disableMercenaryPenalty = false;
         public bool currencyFallback = false;
         public int currencyFallbackExchangeRate = 80;
         public BindingKeysData kingdomStashHotkey;

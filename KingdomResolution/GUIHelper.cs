@@ -70,30 +70,31 @@ namespace KingdomResolution
         }
         public static void ShowTooltip()
         {
-                GUIContent tooltipString = new GUIContent(GUI.tooltip);
-                GUIStyle styleRect = GUI.skin.box;
-                Vector2 tooltipSize = styleRect.CalcSize(tooltipString);
-                GUIStyle styleTooltip = new GUIStyle();
-                Texture2D background = new Texture2D(1, 1);
-                float textHeight = styleRect.CalcHeight(tooltipString, tooltipSize.x);
-                if (GUI.tooltip != "" && GUI.tooltip != null)
-                {
-                    background.SetPixels32(new Color32[] { new Color32(0, 0, 0, 220) });
-                    GUIStyleState stylestate = new GUIStyleState();
-                    stylestate.background = background;
-                    styleTooltip.normal = stylestate;
-                }
-                else
-                {
-                    background.SetPixels32(new Color32[] { new Color32(0, 0, 0, 0) });
-                }
-                float rectX = Input.mousePosition.x - ummRect.min.x + ummScrollPosition[ummTabId].x - 8;
-                if (rectX > 470)
-                {
-                    rectX = rectX - tooltipSize.x + 8;
-                }
-                float rectY = Screen.height - ummRect.min.y + ummScrollPosition[ummTabId].y - Input.mousePosition.y - 65 - textHeight;
-                GUI.Label(new Rect(rectX, rectY, tooltipSize.x, tooltipSize.y), GUI.tooltip, styleTooltip);
+            if (ummRect == null || ummScrollPosition == null) return;
+            GUIContent tooltipString = new GUIContent(GUI.tooltip);
+            GUIStyle styleRect = GUI.skin.box;
+            Vector2 tooltipSize = styleRect.CalcSize(tooltipString);
+            GUIStyle styleTooltip = new GUIStyle();
+            Texture2D background = new Texture2D(1, 1);
+            float textHeight = styleRect.CalcHeight(tooltipString, tooltipSize.x);
+            if (GUI.tooltip != "" && GUI.tooltip != null)
+            {
+                background.SetPixels32(new Color32[] { new Color32(0, 0, 0, 220) });
+                GUIStyleState stylestate = new GUIStyleState();
+                stylestate.background = background;
+                styleTooltip.normal = stylestate;
+            }
+            else
+            {
+                background.SetPixels32(new Color32[] { new Color32(0, 0, 0, 0) });
+            }
+            float rectX = Input.mousePosition.x - ummRect.min.x + ummScrollPosition[ummTabId].x - 8;
+            if (rectX > 470)
+            {
+                rectX = rectX - tooltipSize.x + 8;
+            }
+            float rectY = Screen.height - ummRect.min.y + ummScrollPosition[ummTabId].y - Input.mousePosition.y - 65 - textHeight;
+            GUI.Label(new Rect(rectX, rectY, tooltipSize.x, tooltipSize.y), GUI.tooltip, styleTooltip);
         }
 
         internal static void Toggle(ref bool enablePausedRandomEvents, object enablePausedRandomEventsLabel)
