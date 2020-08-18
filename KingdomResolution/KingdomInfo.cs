@@ -446,7 +446,7 @@ namespace KingdomResolution
             if (m_TaskInfo == null)
             {
                 m_TaskInfo = new List<string>();
-                m_TaskInfo.Add($"Description: {activeTask.Description}");
+                m_TaskInfo.Add($"Name: {activeTask.Name}");
                 m_TaskInfo.Add($"StartedOn: {activeTask.StartedOn}");
                 m_TaskInfo.Add($"EndsOn: {activeTask.EndsOn}");
                 m_TaskInfo.Add($"Duration: {activeTask.Duration}");
