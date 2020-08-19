@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -58,7 +59,7 @@ namespace KingdomResolution
         public static Rect ummRect = new Rect();
         public static Vector2[] ummScrollPosition;
         public static int ummTabId = 0;
-        [Harmony12.HarmonyPatch(typeof(UnityModManager.UI), "Update")]
+        [HarmonyPatch(typeof(UnityModManager.UI), "Update")]
         internal static class UnityModManager_UI_Update_Patch
         {
             private static void Postfix(UnityModManager.UI __instance, ref Rect ___mWindowRect, ref Vector2[] ___mScrollPosition, ref int ___tabId)

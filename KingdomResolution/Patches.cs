@@ -1,4 +1,4 @@
-﻿using Harmony12;
+﻿using HarmonyLib;
 using Kingmaker.Kingdom;
 using Kingmaker.Kingdom.Blueprints;
 using Kingmaker.Kingdom.Tasks;
@@ -37,7 +37,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -73,7 +73,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -89,7 +89,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -106,7 +106,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -123,7 +123,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -140,7 +140,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -157,7 +157,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -174,7 +174,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }

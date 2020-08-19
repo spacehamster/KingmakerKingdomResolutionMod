@@ -1,7 +1,7 @@
 ﻿using Kingmaker.Designers.EventConditionActionSystem.Actions;
 using Kingmaker.ElementsSystem;
 using System.Linq;
-using Harmony12;
+using HarmonyLib;
 using System.Collections.Generic;
 using UnityEngine;
 using Kingmaker.Kingdom.Blueprints;
@@ -130,7 +130,7 @@ namespace KingdomResolution
             {
                 this.m_Stopwatch.Stop();
                 string message = string.Format("Profiled {0}: {1:0.00}ms", this.m_Text, this.m_Stopwatch.ElapsedMilliseconds);
-                Main.DebugLog(message);
+                Main.Log(message);
             }
         }
     }

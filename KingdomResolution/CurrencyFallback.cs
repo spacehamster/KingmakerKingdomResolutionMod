@@ -1,7 +1,7 @@
 ﻿// Copyright (c) 2018 fireundubh <fireundubh@gmail.com>
 // This code is licensed under MIT license (see LICENSE for details)
 
-using Harmony12;
+using HarmonyLib;
 using Kingmaker.Controllers.Rest;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.Globalmap.State;
@@ -39,23 +39,23 @@ namespace KingdomResolution
         public static string resourceCostSplitFormat = "{1} GP, {0}";
         public static bool CanSpend(int pointCost)
         {
-            if (KingdomState.Instance.BP - pointCost >= 0)
+            if (KingdomState.Instance.BuildPoints - pointCost >= 0)
             {
                 return true;
             }
 
             int currencyMult = Main.settings.currencyFallbackExchangeRate;
 
-            return KingdomState.Instance.BP * currencyMult + Kingmaker.Game.Instance.Player.Money - pointCost * currencyMult >= 0;
+            return KingdomState.Instance.BuildPoints * currencyMult + Kingmaker.Game.Instance.Player.Money - pointCost * currencyMult >= 0;
         }
 
         public static bool SpendPoints(int pointCost)
         {
-            int pointDebt = KingdomState.Instance.BP - pointCost;
+            int pointDebt = KingdomState.Instance.BuildPoints - pointCost;
 
             if (pointDebt >= 0)
             {
-                KingdomState.Instance.BP -= pointCost;
+                KingdomState.Instance.BuildPoints -= pointCost;
                 return true;
             }
 
@@ -68,12 +68,12 @@ namespace KingdomResolution
                 return false;
             }
 
-            KingdomState.Instance.BP -= pointCostNew;
+            KingdomState.Instance.BuildPoints -= pointCostNew;
             return true;
         }
         public static Tuple<int, int> SplitCost(int pointCost)
         {
-            int pointDebt = KingdomState.Instance.BP - pointCost;
+            int pointDebt = KingdomState.Instance.BuildPoints - pointCost;
 
             if (pointDebt >= 0)
             {
@@ -155,7 +155,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -200,7 +200,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -230,7 +230,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return;
                 }
             }
@@ -284,7 +284,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -311,7 +311,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -354,7 +354,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -378,13 +378,13 @@ namespace KingdomResolution
                     Tuple<int, int> costSplit = KingdomCurrencyFallback.SplitCost(KingdomRoot.Instance.DefaultMapResourceCost);
                     if (costSplit.Item2 == 0) return;
                     var bpText = string.Format(resourceCostSplitFormat, costSplit.Item1, costSplit.Item2);
-                    ___m_DescText.text = string.Format(globalMap.ResourceAvailable, bpText, KingdomState.Instance.BP);
+                    ___m_DescText.text = string.Format(globalMap.ResourceAvailable, bpText, KingdomState.Instance.BuildPoints);
                     ___m_StandartControllers.SetActive(true);
                     ___m_OkControllers.SetActive(false);
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -447,7 +447,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -516,7 +516,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -563,7 +563,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -583,7 +583,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }
@@ -623,7 +623,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                     return true;
                 }
             }

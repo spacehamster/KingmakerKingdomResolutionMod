@@ -1,4 +1,4 @@
-﻿using Harmony12;
+﻿using HarmonyLib;
 using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Designers.EventConditionActionSystem.Actions;
@@ -20,7 +20,7 @@ namespace KingdomResolution
     class KingdomTimeline
     {
         static FastSetter<KingdomTask, int> StartedOnSetter;
-        static Harmony12.AccessTools.FieldRef<KingdomEvent, int> m_StartedOnRef;
+        static AccessTools.FieldRef<KingdomEvent, int> m_StartedOnRef;
         static FastInvoker<KingdomTimelineManager, bool> UpdateTimelineOneDay;
         /*
          * Pause Kingdom works by keeping current day constant, and increasing kingdom start day to compensate
@@ -79,7 +79,7 @@ namespace KingdomResolution
                 if ((totalDays - delta) % 7 == 0)
                 {
                     KingdomState.Instance.BPPerTurnTotal = Rulebook.Trigger<RuleCalculateBPGain>(new RuleCalculateBPGain()).BPToAdd;
-                    KingdomState.Instance.BP += KingdomState.Instance.BPPerTurnTotal;
+                    KingdomState.Instance.BuildPoints += KingdomState.Instance.BPPerTurnTotal;
                     KingdomState.Instance.CurrentTurn++;
                     EventBus.RaiseEvent(delegate (IKingdomLogHandler h)
                     {
@@ -132,7 +132,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
                 return true;
             }

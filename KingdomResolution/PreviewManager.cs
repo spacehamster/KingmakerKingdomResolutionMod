@@ -1,4 +1,4 @@
-﻿using Harmony12;
+﻿using HarmonyLib;
 using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Root;
@@ -256,7 +256,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -287,7 +287,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
@@ -369,14 +369,14 @@ namespace KingdomResolution
 
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }
         [HarmonyPatch(typeof(GlobalMapRandomEncounterController), "OnRandomEncounterStarted")]
         static class GlobalMapRandomEncounterController_OnRandomEncounterStarted_Patch
         {
-            static Harmony12.AccessTools.FieldRef<GlobalMapRandomEncounterController, TextMeshProUGUI> m_DescriptionRef;
+            static AccessTools.FieldRef<GlobalMapRandomEncounterController, TextMeshProUGUI> m_DescriptionRef;
             static bool Prepare()
             {
                 m_DescriptionRef = Accessors.CreateFieldRef<GlobalMapRandomEncounterController, TextMeshProUGUI>("m_Description");
@@ -396,7 +396,7 @@ namespace KingdomResolution
                 }
                 catch (Exception ex)
                 {
-                    Main.DebugError(ex);
+                    Main.Error(ex);
                 }
             }
         }

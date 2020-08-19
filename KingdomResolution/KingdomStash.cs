@@ -1,4 +1,4 @@
-﻿using Harmony12;
+﻿using HarmonyLib;
 using Kingmaker;
 using Kingmaker.Blueprints.Loot;
 using Kingmaker.ElementsSystem;
@@ -80,7 +80,7 @@ namespace KingdomResolution
                 loot.Interact(Game.Instance.Player.MainCharacter.Value);
             } catch(Exception ex)
             {
-                Main.DebugError(ex);
+                Main.Error(ex);
             }
         }
         static bool CanBeRegistered()

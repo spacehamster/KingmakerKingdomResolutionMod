@@ -1,5 +1,4 @@
-﻿using Harmony12;
-using UnityModManagerNet;
+﻿using UnityModManagerNet;
 using System;
 using System.Reflection;
 using UnityEngine;
@@ -8,6 +7,7 @@ using System.Linq;
 using Kingmaker.UI.SettingsUI;
 using Kingmaker.Blueprints;
 using Kingmaker.UI.Tooltip;
+using HarmonyLib;
 
 namespace KingdomResolution
 {
@@ -18,11 +18,11 @@ namespace KingdomResolution
     {
         public static UnityModManagerNet.UnityModManager.ModEntry.ModLogger logger;
         [System.Diagnostics.Conditional("DEBUG")]
-        public static void DebugLog(string msg)
+        public static void Log(string msg)
         {
             if (logger != null) logger.Log(msg);
         }
-        public static void DebugError(Exception ex)
+        public static void Error(Exception ex)
         {
             if (logger != null) logger.Log(ex.ToString() + "\n" + ex.StackTrace);
         }
@@ -30,6 +30,7 @@ namespace KingdomResolution
         public static Settings settings;
         static string modId;
         static int SavedCustomLeaderPenalty;
+        static Harmony HarmonyInstance;
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             try
@@ -37,8 +38,8 @@ namespace KingdomResolution
                 logger = modEntry.Logger;
                 modId = modEntry.Info.Id;
                 settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-                harmony.PatchAll(Assembly.GetExecutingAssembly());
+                HarmonyInstance = new Harmony(modEntry.Info.Id);
+                HarmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
                 modEntry.OnToggle = OnToggle;
                 modEntry.OnGUI = OnGUI;
                 modEntry.OnSaveGUI = OnSaveGUI;
@@ -49,57 +50,14 @@ namespace KingdomResolution
             }
             catch (Exception ex)
             {
-                DebugError(ex);
+                Error(ex);
                 throw ex;
             }
             return true;
         }
-        static void UnpatchAll(UnityModManager.ModEntry modEntry)
-        {
-            using (var codeTimer = new Util.CodeTimer("Unpatched1 KingdomResolution"))
-            {
-                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-                var patches = harmony
-                    .GetPatchedMethods()
-                    .ToList();
-                foreach (var method in patches)
-                {
-                    //When unpatching with prefix+postfix handlers that use __state has a bug where you need to unpatch the postfix first or else you get an error in 1.2.0.1
-                    harmony.Unpatch(method, HarmonyPatchType.Postfix, modEntry.Info.Id);
-                    harmony.Unpatch(method, HarmonyPatchType.Prefix, modEntry.Info.Id);
-                    harmony.Unpatch(method, HarmonyPatchType.Transpiler, modEntry.Info.Id);
-                }
-            }
-        }
-        static void UnpatchAll2(UnityModManager.ModEntry modEntry)
-        {
-            using (var codeTimer = new Util.CodeTimer("Unpatched2 KingdomResolution"))
-            {
-                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-                //When unpatching with prefix+postfix handlers that use __state has a bug where you need to unpatch the postfix first or else you get an error in 1.2.0.1
-                var method = AccessTools.Method(typeof(DescriptionTemplatesKingdom), "KingdomLeaderStatDescription",
-                    new Type[] { typeof(LeaderState), typeof(LeaderState.Leader), typeof(DescriptionBricksBox) });
-                harmony.Unpatch(method, HarmonyPatchType.Postfix, modEntry.Info.Id);
-                harmony.UnpatchAll(modEntry.Info.Id);
-            }
-        }
         static bool Unload(UnityModManager.ModEntry modEntry)
         {
-            try
-            {
-                UnpatchAll2(modEntry);
-            }
-            catch (Exception ex)
-            {
-                var harmony = HarmonyInstance.Create(modEntry.Info.Id);
-                var _patches = harmony.GetPatchedMethods()
-                    .Where(method => harmony.GetPatchInfo(method).Owners.Contains(modEntry.Info.Id))
-                    .ToList();
-                if (_patches.Count > 0)
-                {
-                    throw new Exception($"Failed to unpatch methods {_patches.Count}", ex);
-                }
-            }
+            HarmonyInstance.UnpatchAll(modId);
             return true;
         }
         // Called when the mod is turned to on/off.
@@ -171,7 +129,7 @@ namespace KingdomResolution
             }
             catch (Exception ex)
             {
-                DebugError(ex);
+                Error(ex);
                 throw ex;
             }
         }
