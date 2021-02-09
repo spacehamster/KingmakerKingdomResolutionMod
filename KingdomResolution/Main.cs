@@ -69,7 +69,6 @@ namespace KingdomResolution
         static void OnSaveGUI(UnityModManager.ModEntry modEntry)
         {
             settings.Save(modEntry);
-
         }
         static void OnGUI(UnityModManager.ModEntry modEntry)
         {
